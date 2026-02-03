@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { analyzeItem } from './services/aiService';
 import * as Storage from './services/storageService';
 import { AppSettings, CircleItem } from './types';
-import { DEFAULT_SETTINGS, PROVIDERS, MODELS_BY_PROVIDER, LANGUAGES, CURRENCIES } from './constants';
+import { DEFAULT_SETTINGS, LANGUAGES, CURRENCIES } from './constants';
 
 const WHITELIST = [
   'stoffer@nose.dk',
@@ -11,6 +11,25 @@ const WHITELIST = [
   'stilettorebel@hotmail.com',
   'simon.ellefsen@gmail.com'
 ];
+
+// Helper to rotate base64 image
+const rotateImageBase64 = (base64Str: string): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.height;
+      canvas.height = img.width;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return resolve(base64Str);
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(Math.PI / 2);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      resolve(canvas.toDataURL('image/jpeg', 0.9));
+    };
+  });
+};
 
 const compressImage = (base64Str: string, maxWidth = 1024, maxHeight = 1024): Promise<string> => {
   return new Promise((resolve) => {
@@ -40,7 +59,7 @@ const compressImage = (base64Str: string, maxWidth = 1024, maxHeight = 1024): Pr
   });
 };
 
-// --- KOMPONENTER ---
+// --- COMPONENTS ---
 
 const VoiceInput: React.FC<{ onResult: (text: string) => void; className?: string }> = ({ onResult, className }) => {
   const [isListening, setIsListening] = useState(false);
@@ -69,7 +88,7 @@ const VoiceInput: React.FC<{ onResult: (text: string) => void; className?: strin
       onClick={startListening}
       className={`p-2 rounded-full transition-all active:scale-90 ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-blue-50 text-blue-600'} ${className}`}
     >
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
       </svg>
     </button>
@@ -78,6 +97,7 @@ const VoiceInput: React.FC<{ onResult: (text: string) => void; className?: strin
 
 const CropModal: React.FC<{ src: string; onCrop: (cropped: string) => void; onCancel: () => void }> = ({ src, onCrop, onCancel }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [currentSrc, setCurrentSrc] = useState(src);
   const [imgObj, setImgObj] = useState<HTMLImageElement | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0, size: 300 });
   const [isDragging, setIsDragging] = useState(false);
@@ -85,13 +105,13 @@ const CropModal: React.FC<{ src: string; onCrop: (cropped: string) => void; onCa
 
   useEffect(() => {
     const img = new Image();
-    img.src = src;
+    img.src = currentSrc;
     img.onload = () => {
       setImgObj(img);
       const minSize = Math.min(img.width, img.height);
       setCrop({ size: minSize, x: (img.width - minSize) / 2, y: (img.height - minSize) / 2 });
     };
-  }, [src]);
+  }, [currentSrc]);
 
   useEffect(() => {
     if (!imgObj || !canvasRef.current) return;
@@ -119,6 +139,11 @@ const CropModal: React.FC<{ src: string; onCrop: (cropped: string) => void; onCa
     ctx.strokeRect(offsetX + crop.x * ratio, offsetY + crop.y * ratio, crop.size * ratio, crop.size * ratio);
   }, [imgObj, crop]);
 
+  const rotateImage = async () => {
+    const rotated = await rotateImageBase64(currentSrc);
+    setCurrentSrc(rotated);
+  };
+
   const handleStart = (clientX: number, clientY: number) => {
     setIsDragging(true);
     setLastTouch({ x: clientX, y: clientY });
@@ -142,20 +167,27 @@ const CropModal: React.FC<{ src: string; onCrop: (cropped: string) => void; onCa
     <div className="fixed inset-0 bg-black/95 z-[200] flex flex-col p-4 animate-in fade-in duration-300">
       <div className="flex justify-between items-center mb-6 pt-[env(safe-area-inset-top)]">
         <button onClick={onCancel} className="text-white/60 font-medium px-4">Annuller</button>
-        <h2 className="text-white font-bold">Tilpas Billede</h2>
-        <button onClick={() => {
-          if (!imgObj) return;
-          const finalCanvas = document.createElement('canvas');
-          finalCanvas.width = 1024; finalCanvas.height = 1024;
-          finalCanvas.getContext('2d')?.drawImage(imgObj, crop.x, crop.y, crop.size, crop.size, 0, 0, 1024, 1024);
-          onCrop(finalCanvas.toDataURL('image/jpeg', 0.8));
-        }} className="bg-blue-600 text-white px-6 py-2 rounded-full font-bold">Udfør</button>
+        <div className="flex items-center gap-4">
+          <button onClick={rotateImage} className="text-white p-2 bg-white/10 rounded-full active:scale-90 transition-all">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+          <button onClick={() => {
+            if (!imgObj) return;
+            const finalCanvas = document.createElement('canvas');
+            finalCanvas.width = 1024; finalCanvas.height = 1024;
+            finalCanvas.getContext('2d')?.drawImage(imgObj, crop.x, crop.y, crop.size, crop.size, 0, 0, 1024, 1024);
+            onCrop(finalCanvas.toDataURL('image/jpeg', 0.8));
+          }} className="bg-blue-600 text-white px-6 py-2 rounded-full font-bold">Udfør</button>
+        </div>
       </div>
       <div className="flex-1 flex items-center justify-center touch-none">
         <canvas 
           ref={canvasRef} 
           width={window.innerWidth - 32} 
           height={window.innerHeight - 180} 
+          className="rounded-xl"
           onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
           onMouseMove={(e) => handleMove(e.clientX, e.clientY)}
           onMouseUp={() => setIsDragging(false)}
@@ -164,6 +196,7 @@ const CropModal: React.FC<{ src: string; onCrop: (cropped: string) => void; onCa
           onTouchEnd={() => setIsDragging(false)}
         />
       </div>
+      <p className="text-white/40 text-[10px] text-center mt-4 font-bold uppercase tracking-widest">Træk i billedet for at justere kvadratet</p>
     </div>
   );
 };
@@ -183,44 +216,44 @@ const LoginScreen: React.FC<{ onLogin: (email: string) => void }> = ({ onLogin }
 
   return (
     <div className="fixed inset-0 bg-white flex flex-col items-center justify-center p-8 z-[100] animate-in fade-in duration-500">
-      <div className="w-24 h-24 bg-[#2563eb] rounded-3xl ios-shadow flex items-center justify-center mb-10">
+      <div className="w-24 h-24 bg-[#2563eb] rounded-[32px] ios-shadow flex items-center justify-center mb-10">
         <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
       </div>
       <div className="text-center mb-12">
-        <h1 className="text-3xl font-bold text-[#111827] mb-2">WeCircle-Assistent</h1>
-        <p className="text-[#6B7280] font-medium">Log ind for at fortsætte</p>
+        <h1 className="text-3xl font-bold text-[#111827] mb-2 tracking-tight">WeCircle-Assistent</h1>
+        <p className="text-[#6B7280] font-medium text-lg">Log ind for at fortsætte</p>
       </div>
-      <div className="w-full max-w-sm space-y-6">
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-bold text-[#9CA3AF] uppercase ml-1 tracking-wider">Arbejds E-mail</label>
+      <div className="w-full max-w-sm space-y-8">
+        <div className="space-y-2">
+          <label className="text-[11px] font-bold text-[#9CA3AF] uppercase ml-1 tracking-widest">E-MAIL</label>
           <input 
             type="email" 
             value={email} 
             onChange={(e) => setEmail(e.target.value)}
             placeholder="navn@domæne.dk" 
-            className="w-full bg-[#F3F4F6]/50 border border-[#E5E7EB] rounded-2xl p-4 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+            className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-[20px] p-5 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-[#9CA3AF]" 
           />
         </div>
         {error && <div className="text-red-500 text-xs font-bold text-center">{error}</div>}
-        <div className="space-y-3">
-          <button onClick={handleLogin} className="w-full bg-[#BDBDBD] text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 active:scale-95 transition-all">
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" /></svg>
+        <div className="space-y-4">
+          <button onClick={handleLogin} className="w-full bg-[#D1D1D1] text-[#717171] py-5 rounded-[22px] font-bold text-lg flex items-center justify-center gap-3 active:scale-95 transition-all shadow-sm">
+            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" /></svg>
             Log ind med Google
           </button>
-          <button onClick={handleLogin} className="w-full bg-[#808080] text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 active:scale-95 transition-all">
-            <svg className="w-5 h-5 mb-1" viewBox="0 0 384 512" fill="currentColor"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 21.8-88.5 21.8-11.4 0-53.8-24.3-89.8-23.6-47.5 1-89.2 27.2-113 70.3-48.4 87.4-12.4 217.3 35.1 285.4 23.3 33.7 51.5 71.3 87.7 70.1 34.6-1.2 47.9-22.3 89.8-22.3 41.9 0 54 22.3 90.5 21.6 37.1-.6 61.6-33.8 85-67.6 27.1-39.2 38.3-77.2 38.6-79.2-.8-.4-74.3-28.5-74.7-106.6zM280.4 71.5c16.1-19.4 26.9-46.3 23.9-73.1-23.3 1-51.2 15.6-67.9 35-14.9 17.2-28 44.2-24.4 70.5 26.1 2 52.3-13.1 68.4-32.4z"/></svg>
+          <button onClick={handleLogin} className="w-full bg-[#838383] text-white py-5 rounded-[22px] font-bold text-lg flex items-center justify-center gap-3 active:scale-95 transition-all shadow-sm">
+            <svg className="w-6 h-6 mb-1" viewBox="0 0 384 512" fill="currentColor"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 21.8-88.5 21.8-11.4 0-53.8-24.3-89.8-23.6-47.5 1-89.2 27.2-113 70.3-48.4 87.4-12.4 217.3 35.1 285.4 23.3 33.7 51.5 71.3 87.7 70.1 34.6-1.2 47.9-22.3 89.8-22.3 41.9 0 54 22.3 90.5 21.6 37.1-.6 61.6-33.8 85-67.6 27.1-39.2 38.3-77.2 38.6-79.2-.8-.4-74.3-28.5-74.7-106.6zM280.4 71.5c16.1-19.4 26.9-46.3 23.9-73.1-23.3 1-51.2 15.6-67.9 35-14.9 17.2-28 44.2-24.4 70.5 26.1 2 52.3-13.1 68.4-32.4z"/></svg>
             Log ind med Apple ID
           </button>
         </div>
       </div>
-      <p className="mt-auto text-[10px] text-[#9CA3AF] font-bold uppercase tracking-[0.2em] pb-8">© 2025 WeCircle-Assistent Inc.</p>
+      <p className="mt-auto text-[11px] text-[#9CA3AF] font-bold uppercase tracking-[0.25em] pb-8">© 2025 WECIRCLE-ASSISTENT INC.</p>
     </div>
   );
 };
 
-// --- HOVED-APP ---
+// --- MAIN APP ---
 
 const App: React.FC = () => {
   const [user, setUser] = useState<{ email: string } | null>(null);
@@ -267,6 +300,11 @@ const App: React.FC = () => {
     if (view !== 'capture') setView('capture');
   };
 
+  const handleQuickRotate = async (idx: number) => {
+    const rotated = await rotateImageBase64(capturedPhotos[idx]);
+    setCapturedPhotos(prev => prev.map((img, i) => i === idx ? rotated : img));
+  };
+
   const handleAnalyze = async () => {
     if (capturedPhotos.length === 0) return;
     setIsAnalyzing(true);
@@ -293,7 +331,7 @@ const App: React.FC = () => {
     <div className="max-w-md mx-auto min-h-screen flex flex-col bg-gray-50 font-inter">
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b px-6 py-4 pt-[env(safe-area-inset-top)] flex justify-between items-center">
         <h1 className="text-xl font-bold tracking-tight text-[#111827]">
-          {view === 'history' ? 'Mine Emner' : view === 'capture' ? 'Nyt Emne' : view === 'review' ? 'Gennemse' : 'Profil'}
+          {view === 'history' ? 'Mine Emner' : view === 'capture' ? 'Nyt Emne' : view === 'review' ? 'Gennemse' : 'Indstillinger'}
         </h1>
       </header>
 
@@ -305,11 +343,11 @@ const App: React.FC = () => {
             ) : history.length === 0 ? (
               <div className="flex flex-col items-center justify-center pt-20 text-gray-300 opacity-40">
                 <svg className="w-20 h-20 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
-                <p className="font-bold uppercase tracking-widest text-[10px]">Ingen varer fundet</p>
+                <p className="font-bold uppercase tracking-widest text-[10px]">Ingen varer endnu</p>
               </div>
             ) : (
               history.map(item => (
-                <button key={item.id} onClick={() => { setReviewItem(item); setView('review'); }} className="w-full text-left bg-white rounded-3xl p-5 ios-shadow flex gap-5 transition-all active:scale-[0.97]">
+                <button key={item.id} onClick={() => { setReviewItem(item); setView('review'); }} className="w-full text-left bg-white rounded-[28px] p-5 ios-shadow flex gap-5 transition-all active:scale-[0.97]">
                   <img src={item.photos[0]} className="w-20 h-20 rounded-2xl object-cover bg-gray-100" />
                   <div className="flex-1 py-1 flex flex-col justify-between">
                     <div>
@@ -327,22 +365,27 @@ const App: React.FC = () => {
           <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-300">
             <div className="grid grid-cols-2 gap-4">
               {capturedPhotos.map((photo, idx) => (
-                <div key={idx} className="relative aspect-square rounded-3xl overflow-hidden bg-white border border-gray-100 ios-shadow group">
+                <div key={idx} className="relative aspect-square rounded-[24px] overflow-hidden bg-white border border-gray-100 ios-shadow group">
                   <img src={photo} className="w-full h-full object-cover" />
-                  <div className="absolute bottom-3 left-3 right-3 flex gap-2">
-                    <button onClick={() => setCropIndex(idx)} className="flex-1 bg-white/90 backdrop-blur py-2 rounded-xl text-[10px] font-bold uppercase text-[#111827] shadow-sm">Beskær</button>
-                    <button onClick={() => setCapturedPhotos(p => p.filter((_, i) => i !== idx))} className="bg-red-500/90 text-white p-2 rounded-xl shadow-sm"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" /></svg></button>
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    <button onClick={() => handleQuickRotate(idx)} className="bg-black/40 backdrop-blur text-white p-2 rounded-xl active:scale-90 transition-all">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                    </button>
+                    <button onClick={() => setCapturedPhotos(p => p.filter((_, i) => i !== idx))} className="bg-red-500/80 backdrop-blur text-white p-2 rounded-xl active:scale-90 transition-all">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
                   </div>
+                  <button onClick={() => setCropIndex(idx)} className="absolute bottom-3 left-3 right-3 bg-white/90 backdrop-blur py-2 rounded-xl text-[10px] font-bold uppercase text-[#111827] shadow-sm active:scale-95 transition-all">Beskær</button>
                 </div>
               ))}
-              <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-3xl border-2 border-dashed border-[#E5E7EB] flex flex-col items-center justify-center text-[#9CA3AF] active:bg-gray-100 transition-colors">
-                <svg className="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" /></svg>
+              <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-[24px] border-2 border-dashed border-[#E5E7EB] flex flex-col items-center justify-center text-[#9CA3AF] active:bg-gray-100 transition-colors">
+                <svg className="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
                 <span className="text-[10px] font-bold uppercase tracking-widest">Tilføj Foto</span>
               </button>
               <input type="file" accept="image/*" multiple ref={fileInputRef} onChange={handlePhotoUpload} className="hidden" />
             </div>
 
-            <section className="bg-white rounded-3xl p-6 ios-shadow space-y-4 border border-white">
+            <section className="bg-white rounded-[28px] p-6 ios-shadow space-y-4 border border-white">
               <div className="flex justify-between items-center">
                 <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.15em]">Stemme-kontekst (Valgfrit)</label>
                 <VoiceInput onResult={(t) => setVoiceContext(prev => prev + (prev ? " " : "") + t)} />
@@ -350,12 +393,12 @@ const App: React.FC = () => {
               <textarea 
                 value={voiceContext} onChange={(e) => setVoiceContext(e.target.value)}
                 placeholder="Fortæl om stand, nypris eller andet..."
-                rows={4} className="w-full bg-[#F9FAFB] border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-gray-300"
+                rows={4} className="w-full bg-[#F9FAFB] border-none rounded-[20px] p-4 text-sm focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-gray-300"
               />
             </section>
 
-            <button disabled={capturedPhotos.length === 0 || isAnalyzing} onClick={handleAnalyze} className="w-full bg-[#2563eb] text-white py-5 rounded-3xl font-bold text-lg shadow-xl active:scale-95 transition-all disabled:opacity-50">
-              {isAnalyzing ? "Analyserer varen..." : "Identificer & Prissæt"}
+            <button disabled={capturedPhotos.length === 0 || isAnalyzing} onClick={handleAnalyze} className="w-full bg-[#2563eb] text-white py-5 rounded-[22px] font-bold text-lg shadow-xl active:scale-95 transition-all disabled:opacity-50">
+              {isAnalyzing ? "Analyserer..." : "Identificer & Prissæt"}
             </button>
           </div>
         )}
@@ -363,36 +406,36 @@ const App: React.FC = () => {
         {view === 'review' && reviewItem && (
           <div className="space-y-6 animate-in fade-in pb-10">
             <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar px-1">
-              {reviewItem.photos?.map((photo, idx) => <img key={idx} src={photo} className="w-28 h-28 object-cover rounded-2xl border bg-white" />)}
+              {reviewItem.photos?.map((photo, idx) => <img key={idx} src={photo} className="w-28 h-28 object-cover rounded-2xl border bg-white shadow-sm" />)}
             </div>
 
-            <section className="bg-white rounded-3xl p-6 ios-shadow space-y-6 border border-white">
+            <section className="bg-white rounded-[28px] p-6 ios-shadow space-y-6 border border-white">
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest px-1">Titel</label>
                   <VoiceInput onResult={(t) => setReviewItem({ ...reviewItem, description: t })} />
                 </div>
-                <input type="text" value={reviewItem.description} onChange={(e) => setReviewItem({ ...reviewItem, description: e.target.value })} className="w-full bg-[#F9FAFB] border-none rounded-2xl p-4 text-base font-bold text-[#111827]" />
+                <input type="text" value={reviewItem.description} onChange={(e) => setReviewItem({ ...reviewItem, description: e.target.value })} className="w-full bg-[#F9FAFB] border-none rounded-[20px] p-4 text-base font-bold text-[#111827]" />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-[#9CA3AF] uppercase px-1">Nypris ({settings.currency})</label>
-                  <input type="number" value={reviewItem.priceNew || ''} onChange={(e) => setReviewItem({ ...reviewItem, priceNew: parseFloat(e.target.value) || 0 })} className="w-full bg-[#F9FAFB] border-none rounded-2xl p-4 text-lg font-bold text-gray-400" />
+                  <input type="number" value={reviewItem.priceNew || ''} onChange={(e) => setReviewItem({ ...reviewItem, priceNew: parseFloat(e.target.value) || 0 })} className="w-full bg-[#F9FAFB] border-none rounded-[20px] p-4 text-lg font-bold text-gray-400" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-[#9CA3AF] uppercase px-1">Vurderet Pris ({settings.currency})</label>
-                  <input type="number" value={reviewItem.price || ''} onChange={(e) => setReviewItem({ ...reviewItem, price: parseFloat(e.target.value) || 0 })} className="w-full bg-[#F9FAFB] border-none rounded-2xl p-4 text-lg font-bold text-blue-600" />
+                  <input type="number" value={reviewItem.price || ''} onChange={(e) => setReviewItem({ ...reviewItem, price: parseFloat(e.target.value) || 0 })} className="w-full bg-[#F9FAFB] border-none rounded-[20px] p-4 text-lg font-bold text-blue-600" />
                 </div>
               </div>
             </section>
 
-            <section className="bg-white rounded-3xl p-6 ios-shadow space-y-4 border border-white">
+            <section className="bg-white rounded-[28px] p-6 ios-shadow space-y-4 border border-white">
               <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest px-1">Vare-detaljer</label>
               <div className="grid grid-cols-2 gap-3">
                 {['brand', 'type', 'color', 'size', 'condition'].map(field => (
-                  <div key={field} className="bg-[#F9FAFB] p-3 rounded-2xl">
-                    <span className="text-[8px] text-[#9CA3AF] uppercase font-bold block mb-1">{field}</span>
+                  <div key={field} className="bg-[#F9FAFB] p-3 rounded-[16px]">
+                    <span className="text-[9px] text-[#9CA3AF] uppercase font-bold block mb-1">{field}</span>
                     <input className="w-full bg-transparent border-none p-0 text-xs font-bold text-[#111827]" value={reviewItem.details?.[field as keyof typeof reviewItem.details] || ''} onChange={(e) => setReviewItem({ ...reviewItem, details: { ...reviewItem.details, [field]: e.target.value } })} />
                   </div>
                 ))}
@@ -406,7 +449,7 @@ const App: React.FC = () => {
               setView('history');
               setCapturedPhotos([]);
               setVoiceContext("");
-            }} className="w-full bg-[#2563eb] text-white py-5 rounded-3xl font-bold text-lg shadow-xl active:scale-95 transition-all">Gem i Garderobe</button>
+            }} className="w-full bg-[#2563eb] text-white py-5 rounded-[22px] font-bold text-lg shadow-xl active:scale-95 transition-all">Gem Emne</button>
           </div>
         )}
       </main>
@@ -419,10 +462,10 @@ const App: React.FC = () => {
           <span className="text-[9px] font-bold uppercase tracking-widest">Varer</span>
         </button>
         <button onClick={() => { if (view !== 'capture') setView('capture'); else fileInputRef.current?.click(); }} className="bg-[#2563eb] text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center -translate-y-6 border-4 border-white active:scale-90 transition-all">
-          <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" /></svg>
+          <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" /></svg>
         </button>
         <button onClick={() => setView('settings')} className={`flex flex-col items-center gap-1.5 ${view === 'settings' ? 'text-blue-600' : 'text-gray-300'}`}>
-          <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /></svg>
+          <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z" /><path fillRule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 010-1.113zM17.25 12a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0z" clipRule="evenodd" /></svg>
           <span className="text-[9px] font-bold uppercase tracking-widest">Profil</span>
         </button>
       </nav>
