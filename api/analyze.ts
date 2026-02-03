@@ -117,14 +117,18 @@ const googleHandler: ProviderHandler = async ({ images, prompt, settings, apiKey
   return JSON.parse(text) as AIResult;
 };
 
-const coerceContentToText = (
-  content: OpenAI.Chat.Completions.ChatCompletion.Choice["message"]["content"],
-) => {
+const coerceContentToText = (content: unknown) => {
   if (!content) return "";
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
     return content
-      .map((part) => (part.type === "text" ? part.text : ""))
+      .map((part) => {
+        if (part && typeof part === "object" && "text" in part) {
+          const candidate = (part as { text?: string }).text;
+          return candidate ?? "";
+        }
+        return "";
+      })
       .join("\n")
       .trim();
   }
