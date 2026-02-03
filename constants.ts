@@ -52,11 +52,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   language: 'Dansk',
   currency: 'DKK',
   customPrompt: `Identificer tøjet/genstanden på billedet/billederne.
-Giv en beskrivelse på én linje på {language} (maks. 58 tegn), der indeholder mærke, type, farve og størrelse. 
-Foreslå en rimelig genbrugspris i {currency}.
+Giv en kort titel på {language} (maks. 58 tegn) i feltet 'description'.
+Foreslå en rimelig genbrugspris i {currency} i feltet 'price'.
+Tjek om varen stadig sælges fra ny, og hvad den koster fra ny i {currency} i feltet 'priceNew'.
 Identificer også materiale, stand og stil.
+Brug Google Search til at finde 2-3 lignende varer til salg online for at validere prisen.
 Hvis mærke, type, farve, størrelse, materiale, stand eller stil ikke kan identificeres med sikkerhed, skal du skrive "Ukendt" i det pågældende felt.
-Returner resultatet strengt som JSON med nøglerne: 'description', 'price', 'brand', 'type', 'color', 'size', 'material', 'condition', 'style'.`,
+Returner resultatet strengt som JSON med nøglerne: 'description', 'price', 'priceNew', 'brand', 'type', 'color', 'size', 'material', 'condition', 'style', 'similarLinks'.`,
 };
 
 export const LANGUAGES = ['Dansk', 'English', 'Svenska', 'Norsk', 'Deutsch'];

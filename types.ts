@@ -13,6 +13,7 @@ export interface CircleItem {
   photos: string[]; // base64 strings
   description: string;
   price: number;
+  priceNew?: number;
   currency: string;
   details: {
     brand?: string;
@@ -23,12 +24,13 @@ export interface CircleItem {
     condition?: string;
     style?: string;
   };
-  similarLink?: string;
+  similarLinks?: string[];
 }
 
 export interface AIResult {
   description: string;
   price: number;
+  priceNew?: number;
   brand: string;
   type: string;
   color: string;
@@ -36,5 +38,5 @@ export interface AIResult {
   material: string;
   condition: string;
   style: string;
-  similarLink?: string;
+  similarLinks?: string[];
 }
