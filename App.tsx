@@ -61,6 +61,80 @@ const compressImage = (base64Str: string, maxWidth = 1024, maxHeight = 1024): Pr
 
 // --- COMPONENTS ---
 
+const SwipeableListItem: React.FC<{ 
+  item: CircleItem; 
+  onDelete: (id: string) => void; 
+  onClick: () => void 
+}> = ({ item, onDelete, onClick }) => {
+  const [startX, setStartX] = useState(0);
+  const [translateX, setTranslateX] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const threshold = -80;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setStartX(e.touches[0].clientX);
+    setIsSwiping(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isSwiping) return;
+    const currentX = e.touches[0].clientX;
+    const diff = currentX - startX;
+    // Only allow left swipe
+    if (diff < 0) {
+      setTranslateX(diff);
+    } else {
+      setTranslateX(0);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsSwiping(false);
+    if (translateX < threshold) {
+      setTranslateX(threshold);
+    } else {
+      setTranslateX(0);
+    }
+  };
+
+  const confirmDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsDeleting(true);
+    setTimeout(() => onDelete(item.id), 300);
+  };
+
+  return (
+    <div className={`relative overflow-hidden transition-all duration-300 ${isDeleting ? 'opacity-0 h-0 mb-0' : 'mb-4'}`}>
+      {/* Background Delete Button */}
+      <div 
+        className="absolute inset-0 bg-red-500 rounded-[28px] flex items-center justify-end pr-6 cursor-pointer"
+        onClick={confirmDelete}
+      >
+        <span className="text-white font-bold text-sm uppercase tracking-wider">Slet</span>
+      </div>
+
+      {/* Foreground Item */}
+      <div 
+        className="relative bg-white rounded-[28px] p-5 ios-shadow flex gap-5 transition-transform duration-200 ease-out"
+        style={{ transform: `translateX(${translateX}px)` }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={() => translateX === 0 && onClick()}
+      >
+        <img src={item.photos[0]} className="w-20 h-20 rounded-2xl object-cover bg-gray-100" />
+        <div className="flex-1 py-1 flex flex-col justify-between">
+          <div>
+            <p className="text-sm font-bold text-blue-600 mb-0.5">{item.price} {item.currency}</p>
+            <p className="text-base font-semibold text-[#111827] line-clamp-2 leading-tight">{item.description}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const VoiceInput: React.FC<{ onResult: (text: string) => void; className?: string }> = ({ onResult, className }) => {
   const [isListening, setIsListening] = useState(false);
   
@@ -305,6 +379,15 @@ const App: React.FC = () => {
     setCapturedPhotos(prev => prev.map((img, i) => i === idx ? rotated : img));
   };
 
+  const handleDeleteHistoryItem = async (id: string) => {
+    try {
+      await Storage.deleteHistoryItem(id);
+      setHistory(prev => prev.filter(item => item.id !== id));
+    } catch (err) {
+      alert("Kunne ikke slette varen.");
+    }
+  };
+
   const handleAnalyze = async () => {
     if (capturedPhotos.length === 0) return;
     setIsAnalyzing(true);
@@ -337,7 +420,7 @@ const App: React.FC = () => {
 
       <main className="flex-1 p-6 pb-32">
         {view === 'history' && (
-          <div className="space-y-4 animate-in fade-in">
+          <div className="space-y-0 animate-in fade-in">
             {isLoadingHistory ? (
               <div className="flex justify-center pt-20"><div className="animate-spin h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full" /></div>
             ) : history.length === 0 ? (
@@ -347,15 +430,12 @@ const App: React.FC = () => {
               </div>
             ) : (
               history.map(item => (
-                <button key={item.id} onClick={() => { setReviewItem(item); setView('review'); }} className="w-full text-left bg-white rounded-[28px] p-5 ios-shadow flex gap-5 transition-all active:scale-[0.97]">
-                  <img src={item.photos[0]} className="w-20 h-20 rounded-2xl object-cover bg-gray-100" />
-                  <div className="flex-1 py-1 flex flex-col justify-between">
-                    <div>
-                      <p className="text-sm font-bold text-blue-600 mb-0.5">{item.price} {item.currency}</p>
-                      <p className="text-base font-semibold text-[#111827] line-clamp-2 leading-tight">{item.description}</p>
-                    </div>
-                  </div>
-                </button>
+                <SwipeableListItem 
+                  key={item.id} 
+                  item={item} 
+                  onDelete={handleDeleteHistoryItem} 
+                  onClick={() => { setReviewItem(item); setView('review'); }} 
+                />
               ))
             )}
           </div>
