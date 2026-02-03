@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { analyzeItem } from './services/aiService';
+import { analyzeItem, ANALYZE_API_URL } from './services/aiService';
 import * as Storage from './services/storageService';
 import type { AppSettings, CircleItem } from './types';
 import { DEFAULT_SETTINGS, LANGUAGES, CURRENCIES, PROVIDERS, MODELS_BY_PROVIDER } from './constants';
@@ -387,7 +387,14 @@ const App: React.FC = () => {
     const fetchProviderStatus = async () => {
       setIsCheckingProviders(true);
       try {
-        const response = await fetch('/api/providerStatus');
+        const providerStatusUrl = (() => {
+          const base = ANALYZE_API_URL.replace(/\/?analyze(\.ts)?$/i, "");
+          if (!base || base === "/") return "/api/providerStatus";
+          if (base.endsWith("/api")) return `${base}/providerStatus`;
+          if (base.endsWith("/api/")) return `${base}providerStatus`;
+          return `${base}/api/providerStatus`;
+        })();
+        const response = await fetch(providerStatusUrl);
         if (!response.ok) throw new Error('Status endpoint fejlede');
         const data = await response.json();
         const map: Record<string, ProviderStatus> = {};

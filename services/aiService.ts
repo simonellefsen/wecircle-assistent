@@ -8,7 +8,7 @@ export class AnalysisError extends Error {
   }
 }
 
-const API_ENDPOINT = import.meta.env.VITE_ANALYZE_URL || "/api/analyze";
+export const ANALYZE_API_URL = import.meta.env.VITE_ANALYZE_URL || "/api/analyze";
 
 const buildPrompt = (settings: AppSettings, voiceContext?: string) => {
   let prompt = settings.customPrompt
@@ -40,7 +40,7 @@ export const analyzeItem = async (
   }
 
   try {
-    const response = await fetch(API_ENDPOINT, {
+    const response = await fetch(ANALYZE_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
