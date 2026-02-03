@@ -2,10 +2,30 @@
 import { AppSettings } from './types';
 
 export const PROVIDERS = [
-  { id: 'google', name: 'Google Gemini', icon: '✨' },
-  { id: 'openai', name: 'OpenAI (GPT)', icon: '🤖' },
-  { id: 'anthropic', name: 'Anthropic (Claude)', icon: '🧠' },
-  { id: 'xai', name: 'xAI (Grok)', icon: '✖️' }
+  { 
+    id: 'google', 
+    name: 'Google Gemini', 
+    icon: '✨', 
+    apiKeyUrl: 'https://ai.google.dev/gemini-api/docs/api-key' 
+  },
+  { 
+    id: 'openai', 
+    name: 'OpenAI (GPT)', 
+    icon: '🤖', 
+    apiKeyUrl: 'https://platform.openai.com/api-keys' 
+  },
+  { 
+    id: 'anthropic', 
+    name: 'Anthropic (Claude)', 
+    icon: '🧠', 
+    apiKeyUrl: 'https://console.anthropic.com/settings/keys' 
+  },
+  { 
+    id: 'xai', 
+    name: 'xAI (Grok)', 
+    icon: '✖️', 
+    apiKeyUrl: 'https://console.x.ai/' 
+  }
 ];
 
 export const MODELS_BY_PROVIDER: Record<string, { id: string, name: string }[]> = {

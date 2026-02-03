@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { analyzeItem } from './services/aiService';
 import * as Storage from './services/storageService';
 import { AppSettings, CircleItem } from './types';
-import { DEFAULT_SETTINGS, MODELS_BY_PROVIDER, LANGUAGES, CURRENCIES } from './constants';
+import { DEFAULT_SETTINGS, PROVIDERS, MODELS_BY_PROVIDER, LANGUAGES, CURRENCIES } from './constants';
 
 // Allowed users
 const WHITELIST = [
@@ -266,6 +266,12 @@ const App: React.FC = () => {
     localStorage.setItem('wecircle_settings', JSON.stringify(newSettings));
   };
 
+  const handleProviderChange = (newProvider: string) => {
+    const models = MODELS_BY_PROVIDER[newProvider] || [];
+    const firstModel = models.length > 0 ? models[0].id : '';
+    saveSettings({ ...settings, provider: newProvider, model: firstModel });
+  };
+
   const handleDeleteItem = async (id: string) => {
     if (!window.confirm("Er du sikker på, at du vil slette dette emne?")) return;
     try {
@@ -395,6 +401,8 @@ const App: React.FC = () => {
   if (!user) {
     return <LoginScreen onLogin={handleLoginSuccess} />;
   }
+
+  const selectedProviderInfo = PROVIDERS.find(p => p.id === settings.provider);
 
   return (
     <div className="max-w-md mx-auto min-h-screen flex flex-col">
@@ -552,10 +560,46 @@ const App: React.FC = () => {
             </section>
 
             <section className="bg-white rounded-2xl p-4 ios-shadow space-y-4">
-              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">AI Model</h2>
-              <select value={settings.model} onChange={(e) => saveSettings({ ...settings, model: e.target.value })} className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none">
-                {MODELS_BY_PROVIDER['google'].map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-              </select>
+              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">AI Konfiguration</h2>
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase px-1">AI Udbyder</label>
+                  <select 
+                    value={settings.provider} 
+                    onChange={(e) => handleProviderChange(e.target.value)} 
+                    className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    {PROVIDERS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase px-1">Model</label>
+                  <select 
+                    value={settings.model} 
+                    onChange={(e) => saveSettings({ ...settings, model: e.target.value })} 
+                    className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    {(MODELS_BY_PROVIDER[settings.provider] || []).map(m => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                </div>
+                {selectedProviderInfo?.apiKeyUrl && (
+                  <div className="pt-2 px-1">
+                    <a 
+                      href={selectedProviderInfo.apiKeyUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-xs font-semibold text-blue-600 flex items-center gap-1 hover:underline"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Hvordan får jeg en API nøgle til {selectedProviderInfo.name}?
+                    </a>
+                  </div>
+                )}
+              </div>
             </section>
 
             <section className="bg-white rounded-2xl p-4 ios-shadow space-y-4 mb-10">
