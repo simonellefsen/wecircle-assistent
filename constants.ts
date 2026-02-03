@@ -36,7 +36,6 @@ Giv en beskrivelse på én linje på {language} (maks. 58 tegn), der indeholder 
 Foreslå en rimelig genbrugspris i {currency}.
 Hvis mærke, type, farve eller størrelse ikke kan identificeres med sikkerhed, skal du skrive "Ukendt" i det pågældende felt.
 Returner resultatet strengt som JSON med nøglerne: 'description', 'price', 'brand', 'type', 'color', 'size'.`,
-  apiKeys: {}
 };
 
 export const LANGUAGES = ['Dansk', 'English', 'Svenska', 'Norsk', 'Deutsch'];

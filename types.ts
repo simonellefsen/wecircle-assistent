@@ -5,7 +5,6 @@ export interface AppSettings {
   language: string;
   currency: string;
   customPrompt: string;
-  apiKeys: Record<string, string>;
 }
 
 export interface CircleItem {

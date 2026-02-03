@@ -43,17 +43,25 @@ const Header = ({ title }: { title: string }) => (
   </header>
 );
 
-const HistoryCard: React.FC<{ item: CircleItem, onDelete: (id: string) => void }> = ({ item, onDelete }) => {
+const HistoryCard: React.FC<{ 
+  item: CircleItem, 
+  onDelete: (id: string) => void,
+  onEdit: (item: CircleItem) => void 
+}> = ({ item, onDelete, onEdit }) => {
   const [copied, setCopied] = useState(false);
 
-  const copyToClipboard = () => {
+  const copyToClipboard = (e: React.MouseEvent) => {
+    e.stopPropagation();
     navigator.clipboard.writeText(item.description);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="bg-white rounded-2xl p-4 ios-shadow mb-4 flex gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <div 
+      onClick={() => onEdit(item)}
+      className="bg-white rounded-2xl p-4 ios-shadow mb-4 flex gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300 cursor-pointer active:scale-[0.98] transition-all"
+    >
       <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0">
         <img src={item.photos[0]} alt="Item" className="w-full h-full object-cover" />
       </div>
@@ -64,7 +72,7 @@ const HistoryCard: React.FC<{ item: CircleItem, onDelete: (id: string) => void }
           </p>
           <button 
             onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-            className="text-gray-300 hover:text-red-500 transition-colors p-1"
+            className="text-gray-300 hover:text-red-500 transition-colors p-1 -mt-1 -mr-1"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -77,11 +85,16 @@ const HistoryCard: React.FC<{ item: CircleItem, onDelete: (id: string) => void }
         <div className="flex gap-2">
           <button 
             onClick={copyToClipboard}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
+            className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full transition-all ${
               copied ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 active:bg-gray-200'
             }`}
           >
-            {copied ? 'Kopieret!' : 'Kopier tekst'}
+            {copied ? 'Kopieret' : 'Kopier'}
+          </button>
+          <button 
+            className="text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full bg-blue-50 text-blue-600 active:bg-blue-100"
+          >
+            Rediger
           </button>
         </div>
       </div>
@@ -130,11 +143,6 @@ const App: React.FC = () => {
     localStorage.setItem('wecircle_settings', JSON.stringify(newSettings));
   };
 
-  const handleApiKeyChange = (providerId: string, value: string) => {
-    const updatedKeys = { ...settings.apiKeys, [providerId]: value };
-    saveSettings({ ...settings, apiKeys: updatedKeys });
-  };
-
   const handleDeleteItem = async (id: string) => {
     if (!window.confirm("Er du sikker på, at du vil slette dette emne?")) return;
     try {
@@ -143,6 +151,11 @@ const App: React.FC = () => {
     } catch (err) {
       console.error("Failed to delete item:", err);
     }
+  };
+
+  const handleEditItem = (item: CircleItem) => {
+    setReviewItem(item);
+    setView('review');
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -201,19 +214,24 @@ const App: React.FC = () => {
   const handleSaveReview = async () => {
     if (!reviewItem) return;
 
-    const newItem: CircleItem = {
-      id: Date.now().toString(),
-      timestamp: Date.now(),
+    const isExisting = !!reviewItem.id;
+    const itemToSave: CircleItem = {
+      id: reviewItem.id || Date.now().toString(),
+      timestamp: reviewItem.timestamp || Date.now(),
       photos: reviewItem.photos || [],
       description: reviewItem.description || '',
       price: reviewItem.price || 0,
-      currency: settings.currency,
+      currency: reviewItem.currency || settings.currency,
       details: reviewItem.details || {}
     };
 
     try {
-      await Storage.saveHistoryItem(newItem);
-      setHistory(prev => [newItem, ...prev]);
+      await Storage.saveHistoryItem(itemToSave);
+      if (isExisting) {
+        setHistory(prev => prev.map(item => item.id === itemToSave.id ? itemToSave : item));
+      } else {
+        setHistory(prev => [itemToSave, ...prev]);
+      }
       setCapturedPhotos([]);
       setReviewItem(null);
       setView('history');
@@ -229,7 +247,7 @@ const App: React.FC = () => {
       <Header title={
         view === 'history' ? 'Mine Emner' : 
         view === 'capture' ? 'Nyt Emne' : 
-        view === 'review' ? 'Gennemse Emne' :
+        view === 'review' ? (reviewItem?.id ? 'Rediger Emne' : 'Gennemse Emne') :
         'Indstillinger'
       } />
 
@@ -249,7 +267,12 @@ const App: React.FC = () => {
               </div>
             ) : (
               history.map(item => (
-                <HistoryCard key={item.id} item={item} onDelete={handleDeleteItem} />
+                <HistoryCard 
+                  key={item.id} 
+                  item={item} 
+                  onDelete={handleDeleteItem} 
+                  onEdit={handleEditItem}
+                />
               ))
             )}
           </div>
@@ -322,7 +345,7 @@ const App: React.FC = () => {
               ))}
             </div>
 
-            {Object.values(reviewItem.details || {}).some(v => isDetailMissing(v)) && (
+            {Object.values(reviewItem.details || {}).some(v => isDetailMissing(v as string | undefined)) && (
               <div className="bg-orange-50 border border-orange-100 p-3 rounded-xl flex gap-3 items-center">
                 <span className="text-xl">⚠️</span>
                 <p className="text-xs text-orange-800 font-medium leading-tight">
@@ -367,7 +390,7 @@ const App: React.FC = () => {
                       })}
                       placeholder="Mangler..."
                       className={`w-full bg-gray-50 border rounded-xl p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        isDetailMissing(reviewItem.details?.[field.key as keyof typeof reviewItem.details]) 
+                        isDetailMissing(reviewItem.details?.[field.key as keyof typeof reviewItem.details] as string | undefined) 
                         ? 'border-orange-300 text-orange-800 placeholder-orange-300' : 'border-gray-100 text-gray-700'
                       }`}
                     />
@@ -391,20 +414,27 @@ const App: React.FC = () => {
                 onClick={handleSaveReview}
                 className="w-full bg-blue-600 text-white py-4 rounded-2xl font-semibold text-lg shadow-lg active:scale-[0.98] transition-all"
               >
-                Gem i Historik
+                Gem Ændringer
               </button>
               <button 
-                onClick={() => { setView('capture'); setReviewItem(null); }}
+                onClick={() => { 
+                  if (reviewItem.id) {
+                    setView('history');
+                  } else {
+                    setView('capture');
+                  }
+                  setReviewItem(null); 
+                }}
                 className="w-full py-3 text-gray-500 font-medium active:text-gray-900"
               >
-                Tilbage
+                Annuller
               </button>
             </div>
           </div>
         )}
 
         {view === 'settings' && (
-          <div className="space-y-6 animate-in fade-in duration-300">
+          <div className="space-y-6 animate-in fade-in duration-300 pb-10">
             <section className="bg-white rounded-2xl p-4 ios-shadow space-y-4">
               <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">AI Udbyder</h2>
               <div className="grid grid-cols-2 gap-2">
@@ -429,7 +459,7 @@ const App: React.FC = () => {
             </section>
 
             <section className="bg-white rounded-2xl p-4 ios-shadow space-y-4">
-              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Model & API Nøgle</h2>
+              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Model</h2>
               <div className="space-y-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase px-1">Valgt Model</label>
@@ -443,22 +473,18 @@ const App: React.FC = () => {
                     ))}
                   </select>
                 </div>
-                
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase px-1">API Nøgle ({settings.provider})</label>
-                  <input 
-                    type="password"
-                    placeholder={settings.provider === 'google' ? 'Standard Gemini nøgle anvendes...' : 'Indtast din API nøgle her...'}
-                    value={settings.apiKeys[settings.provider] || ''}
-                    onChange={(e) => handleApiKeyChange(settings.provider, e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {settings.provider === 'google' && !settings.apiKeys['google'] && (
-                    <p className="text-[10px] text-gray-400 px-1 italic">
-                      Lader stå tom for at bruge indbygget Gemini nøgle.
-                    </p>
-                  )}
-                </div>
+              </div>
+            </section>
+
+            <section className="bg-white rounded-2xl p-4 ios-shadow space-y-4">
+              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Installation på iPhone</h2>
+              <div className="text-sm text-gray-600 space-y-3 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                <p className="font-medium text-blue-800">For at få appen på din hjemmeskærm:</p>
+                <ol className="list-decimal list-inside space-y-2 text-xs">
+                  <li>Åbn denne side i <strong>Safari</strong></li>
+                  <li>Tryk på <strong>Del</strong>-ikonet (firkant med pil op)</li>
+                  <li>Rul ned og vælg <strong>"Føj til hjemmeskærm"</strong></li>
+                </ol>
               </div>
             </section>
 
@@ -515,7 +541,7 @@ const App: React.FC = () => {
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 safe-area-bottom px-6 py-2 flex justify-between items-center z-50">
         <button 
-          onClick={() => setView('history')}
+          onClick={() => { setView('history'); setReviewItem(null); }}
           className={`flex flex-col items-center gap-1 transition-colors ${view === 'history' ? 'text-blue-600' : 'text-gray-400'}`}
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -551,7 +577,7 @@ const App: React.FC = () => {
         </div>
 
         <button 
-          onClick={() => setView('settings')}
+          onClick={() => { setView('settings'); setReviewItem(null); }}
           className={`flex flex-col items-center gap-1 transition-colors ${view === 'settings' ? 'text-blue-600' : 'text-gray-400'}`}
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

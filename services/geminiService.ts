@@ -6,6 +6,7 @@ export const analyzeItem = async (
   images: string[],
   settings: AppSettings
 ): Promise<AIResult> => {
+  // Always use the environment API key for Gemini as per guidelines.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = settings.customPrompt
@@ -39,6 +40,7 @@ export const analyzeItem = async (
           color: { type: Type.STRING },
           size: { type: Type.STRING },
         },
+        propertyOrdering: ['description', 'price', 'brand', 'type', 'color', 'size'],
         required: ['description', 'price']
       }
     }

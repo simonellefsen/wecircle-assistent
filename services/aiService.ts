@@ -6,16 +6,10 @@ export const analyzeItem = async (
   images: string[],
   settings: AppSettings
 ): Promise<AIResult> => {
-  // Priority: User provided key in settings -> Environment key (only for Google)
-  const userKey = settings.apiKeys[settings.provider];
-  const googleEnvKey = process.env.API_KEY;
-
+  // Always use the environment API key for Gemini as per guidelines.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
   if (settings.provider === 'google') {
-    const apiKey = userKey || googleEnvKey;
-    if (!apiKey) throw new Error("Google API nøgle mangler. Venligst tilføj den i indstillinger.");
-    
-    const ai = new GoogleGenAI({ apiKey: apiKey });
-    
     const prompt = settings.customPrompt
       .replace('{language}', settings.language)
       .replace('{currency}', settings.currency);
@@ -47,6 +41,7 @@ export const analyzeItem = async (
             color: { type: Type.STRING },
             size: { type: Type.STRING },
           },
+          propertyOrdering: ['description', 'price', 'brand', 'type', 'color', 'size'],
           required: ['description', 'price']
         }
       }
@@ -54,16 +49,13 @@ export const analyzeItem = async (
 
     const resultStr = response.text;
     if (!resultStr) throw new Error("Ingen respons fra AI");
-    return JSON.parse(resultStr) as AIResult;
-  } else {
-    // Check for API key for other providers
-    if (!userKey) {
-      throw new Error(`API nøgle til ${settings.provider} mangler. Venligst tilføj den i indstillinger.`);
+    
+    try {
+        return JSON.parse(resultStr) as AIResult;
+    } catch (e) {
+        throw new Error("Kunne ikke læse AI respons");
     }
-
-    // In a full implementation, we'd use fetch() to talk to OpenAI/Anthropic/xAI.
-    // Since this is a specialized environment optimized for Gemini, 
-    // we'll guide the user to provide the key first.
-    throw new Error(`Support for ${settings.provider} er planlagt. Brug venligst Google Gemini i mellemtiden (kræver ingen ekstra nøgle).`);
+  } else {
+    throw new Error(`Support for ${settings.provider} er planlagt. Brug venligst Google Gemini i mellemtiden.`);
   }
 };
