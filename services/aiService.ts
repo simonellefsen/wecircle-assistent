@@ -4,15 +4,21 @@ import { AppSettings, AIResult } from "../types";
 
 export const analyzeItem = async (
   images: string[],
-  settings: AppSettings
+  settings: AppSettings,
+  contextMetadata?: string
 ): Promise<AIResult> => {
-  // Always use the environment API key for Gemini as per guidelines.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   if (settings.provider === 'google') {
-    const prompt = settings.customPrompt
+    let prompt = settings.customPrompt
       .replace('{language}', settings.language)
       .replace('{currency}', settings.currency);
+
+    if (contextMetadata) {
+      prompt += `\n\nEkstra kontekst fra brugeren (brug disse rettede værdier til din analyse): ${contextMetadata}. 
+      Brug Google Search til at finde en lignende vare til salg nu for at validere prisen. 
+      Inkluder et direkte link til en lignende vare i feltet 'similarLink'.`;
+    }
 
     const imageParts = images.map(img => ({
       inlineData: {
@@ -30,6 +36,7 @@ export const analyzeItem = async (
         ]
       },
       config: {
+        tools: [{ googleSearch: {} }],
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -40,8 +47,9 @@ export const analyzeItem = async (
             type: { type: Type.STRING },
             color: { type: Type.STRING },
             size: { type: Type.STRING },
+            similarLink: { type: Type.STRING, description: 'URL to a similar item found online.' }
           },
-          propertyOrdering: ['description', 'price', 'brand', 'type', 'color', 'size'],
+          propertyOrdering: ['description', 'price', 'brand', 'type', 'color', 'size', 'similarLink'],
           required: ['description', 'price']
         }
       }
@@ -51,7 +59,10 @@ export const analyzeItem = async (
     if (!resultStr) throw new Error("Ingen respons fra AI");
     
     try {
-        return JSON.parse(resultStr) as AIResult;
+        const parsed = JSON.parse(resultStr);
+        // If the model didn't provide a link in JSON but grounding chunks exist, we could try to extract them,
+        // but instructs the model to put it in the JSON for simplicity here.
+        return parsed as AIResult;
     } catch (e) {
         throw new Error("Kunne ikke læse AI respons");
     }

@@ -20,6 +20,7 @@ export interface CircleItem {
     color?: string;
     size?: string;
   };
+  similarLink?: string;
 }
 
 export interface AIResult {
@@ -29,4 +30,5 @@ export interface AIResult {
   type: string;
   color: string;
   size: string;
+  similarLink?: string;
 }
