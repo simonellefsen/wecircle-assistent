@@ -38,7 +38,7 @@ const compressImage = (base64Str: string, maxWidth = 1024, maxHeight = 1024): Pr
 
 // UI Components
 const Header = ({ title }: { title: string }) => (
-  <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 py-3">
+  <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 py-3 pt-[env(safe-area-inset-top)]">
     <h1 className="text-lg font-semibold text-center text-gray-900">{title}</h1>
   </header>
 );
@@ -60,33 +60,35 @@ const HistoryCard: React.FC<{
   return (
     <div 
       onClick={() => onEdit(item)}
-      className="bg-white rounded-2xl p-4 ios-shadow mb-4 flex gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300 cursor-pointer active:scale-[0.98] transition-all"
+      className="bg-white rounded-2xl p-4 ios-shadow mb-4 flex gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300 cursor-pointer active:scale-[0.97] transition-all"
     >
-      <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0">
+      <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-gray-50 border border-gray-100">
         <img src={item.photos[0]} alt="Item" className="w-full h-full object-cover" />
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex justify-between items-start">
-          <p className="text-sm font-medium text-blue-600 mb-1">
-            {item.price} {item.currency}
+      <div className="flex-1 min-w-0 flex flex-col justify-between">
+        <div>
+          <div className="flex justify-between items-start">
+            <p className="text-sm font-bold text-blue-600 mb-0.5">
+              {item.price} {item.currency}
+            </p>
+            <button 
+              onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+              className="text-gray-300 hover:text-red-500 transition-colors p-1 -mt-1 -mr-1"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <p className="text-base font-medium text-gray-900 line-clamp-2 mb-2 leading-tight">
+            {item.description}
           </p>
-          <button 
-            onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-            className="text-gray-300 hover:text-red-500 transition-colors p-1 -mt-1 -mr-1"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
         </div>
-        <p className="text-base font-medium text-gray-900 line-clamp-2 mb-2 leading-tight">
-          {item.description}
-        </p>
         <div className="flex gap-2">
           <button 
             onClick={copyToClipboard}
             className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full transition-all ${
-              copied ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 active:bg-gray-200'
+              copied ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-700 active:bg-gray-200'
             }`}
           >
             {copied ? 'Kopieret' : 'Kopier'}
@@ -243,7 +245,7 @@ const App: React.FC = () => {
   const isDetailMissing = (val: string | undefined) => !val || val.toLowerCase() === 'ukendt';
 
   return (
-    <div className="max-w-md mx-auto min-h-screen flex flex-col pb-24">
+    <div className="max-w-md mx-auto min-h-screen flex flex-col">
       <Header title={
         view === 'history' ? 'Mine Emner' : 
         view === 'capture' ? 'Nyt Emne' : 
@@ -251,7 +253,7 @@ const App: React.FC = () => {
         'Indstillinger'
       } />
 
-      <main className="flex-1 p-4">
+      <main className="flex-1 p-4 pb-32">
         {view === 'history' && (
           <div className="space-y-4">
             {isLoadingHistory ? (
@@ -296,7 +298,7 @@ const App: React.FC = () => {
               ))}
               <button 
                 onClick={triggerFileInput}
-                className="aspect-square rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 active:bg-gray-50 transition-colors"
+                className="aspect-square rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 active:bg-gray-100 transition-colors ios-btn-active"
               >
                 <svg className="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
@@ -315,7 +317,7 @@ const App: React.FC = () => {
               <button 
                 disabled={capturedPhotos.length === 0 || isAnalyzing}
                 onClick={handleAnalyze}
-                className="w-full bg-blue-600 text-white py-4 rounded-2xl font-semibold text-lg shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 disabled:active:scale-100"
+                className="w-full bg-blue-600 text-white py-4 rounded-2xl font-semibold text-lg shadow-lg active:scale-[0.96] transition-all disabled:opacity-50 disabled:active:scale-100"
               >
                 {isAnalyzing ? (
                   <div className="flex items-center justify-center gap-2">
@@ -329,7 +331,7 @@ const App: React.FC = () => {
               </button>
               <button 
                 onClick={() => { setView('history'); setCapturedPhotos([]); }}
-                className="w-full py-3 text-gray-500 font-medium active:text-gray-900"
+                className="w-full py-3 text-gray-500 font-medium ios-btn-active"
               >
                 Annuller
               </button>
@@ -339,7 +341,7 @@ const App: React.FC = () => {
 
         {view === 'review' && reviewItem && (
           <div className="space-y-6 animate-in fade-in duration-300">
-            <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+            <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 no-scrollbar">
               {reviewItem.photos?.map((photo, idx) => (
                 <img key={idx} src={photo} alt="Preview" className="w-24 h-24 object-cover rounded-xl border border-gray-200 flex-shrink-0" />
               ))}
@@ -349,7 +351,7 @@ const App: React.FC = () => {
               <div className="bg-orange-50 border border-orange-100 p-3 rounded-xl flex gap-3 items-center">
                 <span className="text-xl">⚠️</span>
                 <p className="text-xs text-orange-800 font-medium leading-tight">
-                  Vi kunne ikke identificere alle detaljer. Venligst udfyld de manglende felter nedenfor.
+                  Vi kunne ikke identificere alle detaljer automatisk.
                 </p>
               </div>
             )}
@@ -402,6 +404,7 @@ const App: React.FC = () => {
                 <label className="text-[10px] font-bold text-gray-400 uppercase px-1">Pris ({settings.currency})</label>
                 <input 
                   type="number"
+                  inputMode="decimal"
                   value={reviewItem.price || ''}
                   onChange={(e) => setReviewItem({ ...reviewItem, price: parseFloat(e.target.value) || 0 })}
                   className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 text-lg font-bold text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -412,7 +415,7 @@ const App: React.FC = () => {
             <div className="space-y-3 pt-4">
               <button 
                 onClick={handleSaveReview}
-                className="w-full bg-blue-600 text-white py-4 rounded-2xl font-semibold text-lg shadow-lg active:scale-[0.98] transition-all"
+                className="w-full bg-blue-600 text-white py-4 rounded-2xl font-semibold text-lg shadow-lg active:scale-[0.96] transition-all"
               >
                 Gem Ændringer
               </button>
@@ -434,56 +437,15 @@ const App: React.FC = () => {
         )}
 
         {view === 'settings' && (
-          <div className="space-y-6 animate-in fade-in duration-300 pb-10">
-            <section className="bg-white rounded-2xl p-4 ios-shadow space-y-4">
-              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">AI Udbyder</h2>
-              <div className="grid grid-cols-2 gap-2">
-                {PROVIDERS.map(p => (
-                  <button 
-                    key={p.id}
-                    onClick={() => {
-                      const firstModel = MODELS_BY_PROVIDER[p.id][0].id;
-                      saveSettings({ ...settings, provider: p.id, model: firstModel });
-                    }}
-                    className={`flex items-center gap-2 p-3 rounded-xl border transition-all ${
-                      settings.provider === p.id 
-                      ? 'border-blue-500 bg-blue-50 text-blue-700' 
-                      : 'border-gray-100 bg-gray-50 text-gray-600'
-                    }`}
-                  >
-                    <span className="text-lg">{p.icon}</span>
-                    <span className="text-xs font-bold">{p.name}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            <section className="bg-white rounded-2xl p-4 ios-shadow space-y-4">
-              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Model</h2>
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase px-1">Valgt Model</label>
-                  <select 
-                    value={settings.model}
-                    onChange={(e) => saveSettings({ ...settings, model: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 font-medium text-gray-700"
-                  >
-                    {MODELS_BY_PROVIDER[settings.provider].map(m => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </section>
-
+          <div className="space-y-6 animate-in fade-in duration-300">
             <section className="bg-white rounded-2xl p-4 ios-shadow space-y-4">
               <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Installation på iPhone</h2>
               <div className="text-sm text-gray-600 space-y-3 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-                <p className="font-medium text-blue-800">For at få appen på din hjemmeskærm:</p>
+                <p className="font-medium text-blue-800">Brug appen fuldskærm:</p>
                 <ol className="list-decimal list-inside space-y-2 text-xs">
-                  <li>Åbn denne side i <strong>Safari</strong></li>
-                  <li>Tryk på <strong>Del</strong>-ikonet (firkant med pil op)</li>
-                  <li>Rul ned og vælg <strong>"Føj til hjemmeskærm"</strong></li>
+                  <li>Åbn i <strong>Safari</strong></li>
+                  <li>Tryk på <strong>Del</strong> (firkant med pil)</li>
+                  <li>Vælg <strong>"Føj til hjemmeskærm"</strong></li>
                 </ol>
               </div>
             </section>
@@ -496,7 +458,7 @@ const App: React.FC = () => {
                   <select 
                     value={settings.language}
                     onChange={(e) => saveSettings({ ...settings, language: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 font-medium text-gray-700"
+                    className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none"
                   >
                     {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
                   </select>
@@ -506,7 +468,7 @@ const App: React.FC = () => {
                   <select 
                     value={settings.currency}
                     onChange={(e) => saveSettings({ ...settings, currency: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 font-medium text-gray-700"
+                    className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none"
                   >
                     {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -515,6 +477,24 @@ const App: React.FC = () => {
             </section>
 
             <section className="bg-white rounded-2xl p-4 ios-shadow space-y-4">
+              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">AI Model</h2>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase px-1">Valgt Gemini Model</label>
+                  <select 
+                    value={settings.model}
+                    onChange={(e) => saveSettings({ ...settings, model: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    {MODELS_BY_PROVIDER['google'].map(m => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </section>
+
+            <section className="bg-white rounded-2xl p-4 ios-shadow space-y-4 mb-10">
               <div className="flex justify-between items-center">
                 <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Prompt Instrukser</h2>
                 <button 
@@ -525,7 +505,7 @@ const App: React.FC = () => {
                   }}
                   className="text-[10px] font-bold text-blue-600 uppercase"
                 >
-                  Nulstil alt
+                  Nulstil
                 </button>
               </div>
               <textarea 
@@ -539,18 +519,18 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 safe-area-bottom px-6 py-2 flex justify-between items-center z-50">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 safe-area-bottom px-8 py-2 flex justify-between items-center z-50">
         <button 
           onClick={() => { setView('history'); setReviewItem(null); }}
-          className={`flex flex-col items-center gap-1 transition-colors ${view === 'history' ? 'text-blue-600' : 'text-gray-400'}`}
+          className={`flex flex-col items-center gap-1 transition-colors active:scale-90 ${view === 'history' ? 'text-blue-600' : 'text-gray-400'}`}
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6" fill={view === 'history' ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
           </svg>
-          <span className="text-[10px] font-bold">Mine Varer</span>
+          <span className="text-[10px] font-bold">Varer</span>
         </button>
 
-        <div className="relative -top-6">
+        <div className="relative -top-5">
           <button 
             onClick={() => {
               if (view === 'review') {
@@ -578,13 +558,13 @@ const App: React.FC = () => {
 
         <button 
           onClick={() => { setView('settings'); setReviewItem(null); }}
-          className={`flex flex-col items-center gap-1 transition-colors ${view === 'settings' ? 'text-blue-600' : 'text-gray-400'}`}
+          className={`flex flex-col items-center gap-1 transition-colors active:scale-90 ${view === 'settings' ? 'text-blue-600' : 'text-gray-400'}`}
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6" fill={view === 'settings' ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
-          <span className="text-[10px] font-bold">Indstillinger</span>
+          <span className="text-[10px] font-bold">Indstil</span>
         </button>
       </nav>
     </div>

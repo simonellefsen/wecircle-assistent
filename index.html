@@ -9,7 +9,7 @@
     <!-- PWA and iOS Meta Tags -->
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="WeCircle">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3514/3514491.png">
     
@@ -18,22 +18,39 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --ios-blue: #007AFF;
+        }
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             -webkit-tap-highlight-color: transparent;
             background-color: #F9FAFB;
             /* Support for iOS safe areas */
             padding-top: env(safe-area-inset-top);
+            overscroll-behavior-y: none;
         }
         .ios-shadow {
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
         }
         .safe-area-bottom {
-            padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
+            padding-bottom: calc(env(safe-area-inset-bottom) + 0.75rem);
         }
         /* Prevent selection for UI elements to feel more native */
         nav, header, button {
             user-select: none;
+        }
+        /* Native-like active state animation */
+        .ios-btn-active:active {
+            transform: scale(0.96);
+            opacity: 0.8;
+        }
+        /* Hide scrollbar but keep functionality */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
     </style>
 <script type="importmap">
