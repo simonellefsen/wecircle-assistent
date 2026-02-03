@@ -19,6 +19,9 @@ export interface CircleItem {
     type?: string;
     color?: string;
     size?: string;
+    material?: string;
+    condition?: string;
+    style?: string;
   };
   similarLink?: string;
 }
@@ -30,5 +33,8 @@ export interface AIResult {
   type: string;
   color: string;
   size: string;
+  material: string;
+  condition: string;
+  style: string;
   similarLink?: string;
 }

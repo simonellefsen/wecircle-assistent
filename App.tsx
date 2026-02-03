@@ -57,11 +57,14 @@ const generateAutoDescription = (details: CircleItem['details']) => {
 const LoginScreen: React.FC<{ onLogin: (email: string) => void }> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState<string | null>(null); // 'google' | 'apple' | null
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  const handleLogin = (provider: 'google' | 'apple') => {
+    if (!email) {
+      setError("Indtast venligst din e-mail først.");
+      return;
+    }
+    setIsLoading(provider);
     setError(null);
 
     // Simulate OAuth handshake
@@ -71,7 +74,7 @@ const LoginScreen: React.FC<{ onLogin: (email: string) => void }> = ({ onLogin }
         onLogin(lowerEmail);
       } else {
         setError("Adgang nægtet. Din e-mail er ikke på listen over godkendte brugere.");
-        setIsLoading(false);
+        setIsLoading(null);
       }
     }, 1200);
   };
@@ -89,9 +92,9 @@ const LoginScreen: React.FC<{ onLogin: (email: string) => void }> = ({ onLogin }
         <p className="text-gray-500 font-medium">Log ind for at fortsætte</p>
       </div>
 
-      <form onSubmit={handleLogin} className="w-full max-w-sm space-y-4">
+      <div className="w-full max-w-sm space-y-4">
         <div className="space-y-1">
-          <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Arbejds e-mail</label>
+          <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">e-mail</label>
           <input 
             type="email"
             value={email}
@@ -103,36 +106,60 @@ const LoginScreen: React.FC<{ onLogin: (email: string) => void }> = ({ onLogin }
         </div>
 
         {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-semibold border border-red-100 animate-in shake duration-300">
+          <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-semibold border border-red-100 animate-in shake duration-300 text-center">
             {error}
           </div>
         )}
 
-        <button 
-          type="submit"
-          disabled={isLoading || !email}
-          className="w-full bg-[#808080] text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 active:scale-[0.98] transition-all disabled:opacity-50"
-        >
-          {isLoading ? (
-            <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          ) : (
-            <>
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+        <div className="space-y-3 pt-2">
+          <button 
+            type="button"
+            disabled={!!isLoading || !email}
+            onClick={() => handleLogin('google')}
+            className="w-full bg-[#BDBDBD] text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 active:scale-[0.98] transition-all disabled:opacity-50"
+          >
+            {isLoading === 'google' ? (
+              <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              Log ind med Google
-            </>
-          )}
-        </button>
-      </form>
+            ) : (
+              <>
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                </svg>
+                Log ind med Google
+              </>
+            )}
+          </button>
 
-      <p className="mt-auto text-[10px] text-gray-400 font-bold uppercase tracking-widest pb-4">
+          <button 
+            type="button"
+            disabled={!!isLoading || !email}
+            onClick={() => handleLogin('apple')}
+            className="w-full bg-[#808080] text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 active:scale-[0.98] transition-all disabled:opacity-50"
+          >
+            {isLoading === 'apple' ? (
+              <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : (
+              <>
+                <svg className="w-5 h-5 mb-1" viewBox="0 0 384 512" fill="currentColor">
+                  <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 21.8-88.5 21.8-11.4 0-53.8-24.3-89.8-23.6-47.5 1-89.2 27.2-113 70.3-48.4 87.4-12.4 217.3 35.1 285.4 23.3 33.7 51.5 71.3 87.7 70.1 34.6-1.2 47.9-22.3 89.8-22.3 41.9 0 54 22.3 90.5 21.6 37.1-.6 61.6-33.8 85-67.6 27.1-39.2 38.3-77.2 38.6-79.2-.8-.4-74.3-28.5-74.7-106.6zM280.4 71.5c16.1-19.4 26.9-46.3 23.9-73.1-23.3 1-51.2 15.6-67.9 35-14.9 17.2-28 44.2-24.4 70.5 26.1 2 52.3-13.1 68.4-32.4z"/>
+                </svg>
+                Log ind med Apple ID
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      <p className="mt-auto text-[10px] text-gray-400 font-bold uppercase tracking-widest pb-4 text-center">
         &copy; 2025 WECIRCLE-ASSISTENT INC.
       </p>
     </div>
@@ -322,6 +349,9 @@ const App: React.FC = () => {
           type: result.type,
           color: result.color,
           size: result.size,
+          material: result.material,
+          condition: result.condition,
+          style: result.style,
         },
         similarLink: result.similarLink
       });
@@ -338,12 +368,22 @@ const App: React.FC = () => {
     setIsAnalyzing(true);
     setAnalysisError(null);
     try {
-      const context = `Mærke: ${reviewItem.details?.brand}, Type: ${reviewItem.details?.type}, Farve: ${reviewItem.details?.color}, Størrelse: ${reviewItem.details?.size}. Beskrivelse: ${reviewItem.description}`;
+      const context = `Mærke: ${reviewItem.details?.brand}, Type: ${reviewItem.details?.type}, Farve: ${reviewItem.details?.color}, Størrelse: ${reviewItem.details?.size}, Materiale: ${reviewItem.details?.material}, Stand: ${reviewItem.details?.condition}, Stil: ${reviewItem.details?.style}. Beskrivelse: ${reviewItem.description}`;
       const result = await analyzeItem(reviewItem.photos, settings, context);
       setReviewItem({
         ...reviewItem,
         price: result.price,
         description: result.description,
+        details: {
+          ...reviewItem.details,
+          brand: result.brand || reviewItem.details?.brand,
+          type: result.type || reviewItem.details?.type,
+          color: result.color || reviewItem.details?.color,
+          size: result.size || reviewItem.details?.size,
+          material: result.material || reviewItem.details?.material,
+          condition: result.condition || reviewItem.details?.condition,
+          style: result.style || reviewItem.details?.style,
+        },
         similarLink: result.similarLink || reviewItem.similarLink
       });
     } catch (error: any) {
@@ -485,8 +525,16 @@ const App: React.FC = () => {
 
             <section className="bg-white rounded-2xl p-4 ios-shadow space-y-4">
               <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Produktdetaljer</h2>
-              <div className="grid grid-cols-2 gap-4">
-                {[ { label: 'Mærke', key: 'brand' }, { label: 'Type', key: 'type' }, { label: 'Farve', key: 'color' }, { label: 'Størrelse', key: 'size' }].map((field) => (
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                {[ 
+                  { label: 'Mærke', key: 'brand' }, 
+                  { label: 'Type', key: 'type' }, 
+                  { label: 'Farve', key: 'color' }, 
+                  { label: 'Størrelse', key: 'size' },
+                  { label: 'Materiale', key: 'material' },
+                  { label: 'Stand', key: 'condition' },
+                  { label: 'Stil', key: 'style' }
+                ].map((field) => (
                   <div key={field.key} className="space-y-1">
                     <label className="text-[10px] font-bold text-gray-400 uppercase px-1">{field.label}</label>
                     <input type="text" value={reviewItem.details?.[field.key as keyof typeof reviewItem.details] || ''} onChange={(e) => updateDetailAndDescription(field.key as keyof CircleItem['details'], e.target.value)} placeholder="Mangler..." className={`w-full bg-gray-50 border rounded-xl p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${isDetailMissing(reviewItem.details?.[field.key as keyof typeof reviewItem.details] as string | undefined) ? 'border-orange-200 bg-orange-50/30 text-orange-800 placeholder-orange-300' : 'border-gray-100 text-gray-700'}`} />
@@ -573,7 +621,15 @@ const App: React.FC = () => {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase px-1">Model</label>
+                  <div className="flex items-center gap-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase px-1">Model</label>
+                    <div className="group relative">
+                      <svg className="w-3 h-3 text-gray-300 cursor-help" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-[10px] p-2 rounded shadow-lg whitespace-nowrap z-[60]">
+                        Udbyder: {selectedProviderInfo?.name}<br/>ID: {settings.model}
+                      </div>
+                    </div>
+                  </div>
                   <select 
                     value={settings.model} 
                     onChange={(e) => saveSettings({ ...settings, model: e.target.value })} 
@@ -583,6 +639,10 @@ const App: React.FC = () => {
                       <option key={m.id} value={m.id}>{m.name}</option>
                     ))}
                   </select>
+                  <p className="text-[10px] text-gray-400 font-medium px-1 flex items-center gap-1.5 mt-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                    Aktiv: {selectedProviderInfo?.name} — ID: <code className="bg-gray-100 px-1 rounded">{settings.model}</code>
+                  </p>
                 </div>
                 {selectedProviderInfo?.apiKeyUrl && (
                   <div className="pt-2 px-1">

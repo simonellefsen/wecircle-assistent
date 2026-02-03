@@ -54,8 +54,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   customPrompt: `Identificer tøjet/genstanden på billedet/billederne.
 Giv en beskrivelse på én linje på {language} (maks. 58 tegn), der indeholder mærke, type, farve og størrelse. 
 Foreslå en rimelig genbrugspris i {currency}.
-Hvis mærke, type, farve eller størrelse ikke kan identificeres med sikkerhed, skal du skrive "Ukendt" i det pågældende felt.
-Returner resultatet strengt som JSON med nøglerne: 'description', 'price', 'brand', 'type', 'color', 'size'.`,
+Identificer også materiale, stand og stil.
+Hvis mærke, type, farve, størrelse, materiale, stand eller stil ikke kan identificeres med sikkerhed, skal du skrive "Ukendt" i det pågældende felt.
+Returner resultatet strengt som JSON med nøglerne: 'description', 'price', 'brand', 'type', 'color', 'size', 'material', 'condition', 'style'.`,
 };
 
 export const LANGUAGES = ['Dansk', 'English', 'Svenska', 'Norsk', 'Deutsch'];

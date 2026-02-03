@@ -47,9 +47,12 @@ export const analyzeItem = async (
             type: { type: Type.STRING },
             color: { type: Type.STRING },
             size: { type: Type.STRING },
+            material: { type: Type.STRING },
+            condition: { type: Type.STRING },
+            style: { type: Type.STRING },
             similarLink: { type: Type.STRING, description: 'URL to a similar item found online.' }
           },
-          propertyOrdering: ['description', 'price', 'brand', 'type', 'color', 'size', 'similarLink'],
+          propertyOrdering: ['description', 'price', 'brand', 'type', 'color', 'size', 'material', 'condition', 'style', 'similarLink'],
           required: ['description', 'price']
         }
       }
@@ -60,8 +63,6 @@ export const analyzeItem = async (
     
     try {
         const parsed = JSON.parse(resultStr);
-        // If the model didn't provide a link in JSON but grounding chunks exist, we could try to extract them,
-        // but instructs the model to put it in the JSON for simplicity here.
         return parsed as AIResult;
     } catch (e) {
         throw new Error("Kunne ikke læse AI respons");
