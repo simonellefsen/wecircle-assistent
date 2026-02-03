@@ -342,6 +342,8 @@ const LoginScreen: React.FC<{ onLogin: (email: string) => void }> = ({ onLogin }
 
 // --- MAIN APP ---
 
+type ProviderStatus = 'connected' | 'missing';
+
 const App: React.FC = () => {
   const [user, setUser] = useState<{ email: string } | null>(null);
   const [view, setView] = useState<'history' | 'capture' | 'review' | 'settings'>('history');
@@ -355,6 +357,8 @@ const App: React.FC = () => {
   const [reviewItem, setReviewItem] = useState<Partial<CircleItem> | null>(null);
   const [cropIndex, setCropIndex] = useState<number | null>(null);
   const [showSimilarLinks, setShowSimilarLinks] = useState(false);
+  const [providerStatus, setProviderStatus] = useState<Record<string, ProviderStatus>>({});
+  const [isCheckingProviders, setIsCheckingProviders] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -377,6 +381,27 @@ const App: React.FC = () => {
       } finally { setIsLoadingHistory(false); }
     };
     loadData();
+  }, []);
+
+  useEffect(() => {
+    const fetchProviderStatus = async () => {
+      setIsCheckingProviders(true);
+      try {
+        const response = await fetch('/api/providerStatus');
+        if (!response.ok) throw new Error('Status endpoint fejlede');
+        const data = await response.json();
+        const map: Record<string, ProviderStatus> = {};
+        data.statuses?.forEach((entry: { provider: string; hasKey: boolean }) => {
+          map[entry.provider] = entry.hasKey ? 'connected' : 'missing';
+        });
+        setProviderStatus(map);
+      } catch (error) {
+        console.warn('Kunne ikke hente provider-status', error);
+      } finally {
+        setIsCheckingProviders(false);
+      }
+    };
+    fetchProviderStatus();
   }, []);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -642,7 +667,26 @@ const App: React.FC = () => {
             <section className="bg-white rounded-[28px] overflow-hidden ios-shadow border border-white">
               <div className="p-5 border-b border-gray-50 flex justify-between items-center">
                 <h3 className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-widest px-1">AI Konfiguration</h3>
-                <span className="bg-green-100 text-green-600 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">Forbundet</span>
+                {(() => {
+                  const status = providerStatus[settings.provider];
+                  const label = isCheckingProviders
+                    ? 'Kontrollerer...'
+                    : status === 'connected'
+                      ? 'Forbundet'
+                      : status === 'missing'
+                        ? 'Mangler API nøgle'
+                        : 'Ukendt';
+                  const style = status === 'connected'
+                    ? 'bg-green-100 text-green-600'
+                    : status === 'missing'
+                      ? 'bg-red-100 text-red-600'
+                      : 'bg-gray-100 text-gray-500';
+                  return (
+                    <span className={`${style} text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter`}>
+                      {label}
+                    </span>
+                  );
+                })()}
               </div>
               <div className="divide-y divide-gray-50">
                 <div className="p-5 flex justify-between items-center">
@@ -651,8 +695,11 @@ const App: React.FC = () => {
                     value={settings.provider} 
                     onChange={(e) => {
                       const newProvider = e.target.value;
-                      const defaultModel = MODELS_BY_PROVIDER[newProvider]?.[0]?.id || "";
-                      setSettings({...settings, provider: newProvider, model: defaultModel});
+                      setSettings(prev => {
+                        const models = MODELS_BY_PROVIDER[newProvider] || [];
+                        const nextModel = models.find(m => m.id === prev.model)?.id || models[0]?.id || "";
+                        return { ...prev, provider: newProvider, model: nextModel };
+                      });
                     }}
                     className="bg-transparent text-sm font-bold text-blue-600 outline-none"
                   >
@@ -666,10 +713,13 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <select 
                         value={settings.model} 
-                        onChange={(e) => setSettings({...settings, model: e.target.value})}
-                        className="bg-transparent text-sm font-bold text-blue-600 outline-none text-right max-w-[150px] truncate"
+                        onChange={(e) => setSettings(prev => ({...prev, model: e.target.value}))}
+                        className="bg-transparent text-sm font-bold text-blue-600 outline-none text-right max-w-[180px] truncate"
                       >
-                        {MODELS_BY_PROVIDER[settings.provider]?.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                        {MODELS_BY_PROVIDER[settings.provider]?.length
+                          ? MODELS_BY_PROVIDER[settings.provider]!.map(m => <option key={m.id} value={m.id}>{m.name}</option>)
+                          : <option value="">Ingen modeller tilgængelige</option>
+                        }
                       </select>
                     </div>
                   </div>
