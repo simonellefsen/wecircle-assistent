@@ -51,14 +51,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   model: 'gemini-3-flash-preview',
   language: 'Dansk',
   currency: 'DKK',
-  customPrompt: `Identificer tøjet/genstanden på billedet/billederne.
-Giv en kort titel på {language} (maks. 58 tegn) i feltet 'description'.
+  customPrompt: `Identificer varen på billederne.
 Foreslå en rimelig genbrugspris i {currency} i feltet 'price'.
-Tjek om varen stadig sælges fra ny, og hvad den koster fra ny i {currency} i feltet 'priceNew'.
-Identificer også materiale, stand og stil.
-Brug Google Search til at finde 2-3 lignende varer til salg online for at validere prisen.
-Hvis mærke, type, farve, størrelse, materiale, stand eller stil ikke kan identificeres med sikkerhed, skal du skrive "Ukendt" i det pågældende felt.
-Returner resultatet strengt som JSON med nøglerne: 'description', 'price', 'priceNew', 'brand', 'type', 'color', 'size', 'material', 'condition', 'style', 'similarLinks'.`,
+Find eller estimer varens oprindelige nypris i {currency} i feltet 'priceNew'.
+Formuler en beskrivelse på én linje (maks. 58 tegn) på {language} i feltet 'description'. Beskrivelsen SKAL inkludere mærke, type, farve og størrelse hvis de er kendte (f.eks. "Nike Air Max 90 Sort Str. 42").
+Identificer også brand, type, farve, størrelse, materiale, stand og stil i de respektive felter.
+Brug Google Search til at verificere priser og finde lignende links.
+Returner resultatet som JSON med nøglerne: 'description', 'price', 'priceNew', 'brand', 'type', 'color', 'size', 'material', 'condition', 'style', 'similarLinks'.`,
 };
 
 export const LANGUAGES = ['Dansk', 'English', 'Svenska', 'Norsk', 'Deutsch'];

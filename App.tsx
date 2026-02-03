@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { analyzeItem } from './services/aiService';
+import { analyzeItem, AnalysisError } from './services/aiService';
 import * as Storage from './services/storageService';
 import { AppSettings, CircleItem } from './types';
-import { DEFAULT_SETTINGS, LANGUAGES, CURRENCIES } from './constants';
+import { DEFAULT_SETTINGS, LANGUAGES, CURRENCIES, PROVIDERS, MODELS_BY_PROVIDER } from './constants';
 
 const WHITELIST = [
   'stoffer@nose.dk',
@@ -70,7 +70,12 @@ const SwipeableListItem: React.FC<{
   const [translateX, setTranslateX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const threshold = -80;
+
+  useEffect(() => {
+    setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  }, []);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     setStartX(e.touches[0].clientX);
@@ -81,7 +86,6 @@ const SwipeableListItem: React.FC<{
     if (!isSwiping) return;
     const currentX = e.touches[0].clientX;
     const diff = currentX - startX;
-    // Only allow left swipe
     if (diff < 0) {
       setTranslateX(diff);
     } else {
@@ -106,7 +110,6 @@ const SwipeableListItem: React.FC<{
 
   return (
     <div className={`relative overflow-hidden transition-all duration-300 ${isDeleting ? 'opacity-0 h-0 mb-0' : 'mb-4'}`}>
-      {/* Background Delete Button */}
       <div 
         className="absolute inset-0 bg-red-500 rounded-[28px] flex items-center justify-end pr-6 cursor-pointer"
         onClick={confirmDelete}
@@ -114,9 +117,8 @@ const SwipeableListItem: React.FC<{
         <span className="text-white font-bold text-sm uppercase tracking-wider">Slet</span>
       </div>
 
-      {/* Foreground Item */}
       <div 
-        className="relative bg-white rounded-[28px] p-5 ios-shadow flex gap-5 transition-transform duration-200 ease-out"
+        className="relative bg-white rounded-[28px] p-5 ios-shadow flex gap-5 transition-transform duration-200 ease-out cursor-pointer group"
         style={{ transform: `translateX(${translateX}px)` }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -130,6 +132,17 @@ const SwipeableListItem: React.FC<{
             <p className="text-base font-semibold text-[#111827] line-clamp-2 leading-tight">{item.description}</p>
           </div>
         </div>
+
+        {!isTouchDevice && (
+          <button 
+            onClick={confirmDelete}
+            className="absolute top-4 right-4 p-2 bg-red-50 text-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white active:scale-90"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   );
@@ -337,9 +350,11 @@ const App: React.FC = () => {
   const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
   const [voiceContext, setVoiceContext] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [reviewItem, setReviewItem] = useState<Partial<CircleItem> | null>(null);
   const [cropIndex, setCropIndex] = useState<number | null>(null);
+  const [showSimilarLinks, setShowSimilarLinks] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -368,6 +383,7 @@ const App: React.FC = () => {
       reader.onloadend = async () => {
         const compressed = await compressImage(reader.result as string);
         setCapturedPhotos(prev => [...prev, compressed]);
+        setAnalysisError(null);
       };
       reader.readAsDataURL(file);
     });
@@ -388,9 +404,15 @@ const App: React.FC = () => {
     }
   };
 
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('wecircle_user');
+  };
+
   const handleAnalyze = async () => {
     if (capturedPhotos.length === 0) return;
     setIsAnalyzing(true);
+    setAnalysisError(null);
     try {
       const result = await analyzeItem(capturedPhotos, settings, voiceContext);
       setReviewItem({
@@ -399,21 +421,32 @@ const App: React.FC = () => {
         price: result.price,
         priceNew: result.priceNew,
         currency: settings.currency,
-        details: { ...result },
+        details: { 
+          brand: result.brand,
+          type: result.type,
+          color: result.color,
+          size: result.size,
+          material: result.material,
+          condition: result.condition,
+          style: result.style
+        },
         similarLinks: result.similarLinks
       });
       setView('review');
-    } catch (error) {
-      alert("Fejl under analyse. Prøv igen.");
+      setShowSimilarLinks(false);
+    } catch (error: any) {
+      setAnalysisError(error.message || "Der opstod en fejl under analysen.");
     } finally { setIsAnalyzing(false); }
   };
 
   if (!user) return <LoginScreen onLogin={(e) => { setUser({email: e}); localStorage.setItem('wecircle_user', JSON.stringify({email: e})); }} />;
 
+  const currentProvider = PROVIDERS.find(p => p.id === settings.provider);
+
   return (
-    <div className="max-w-md mx-auto min-h-screen flex flex-col bg-gray-50 font-inter">
+    <div className="max-w-md mx-auto min-h-screen flex flex-col bg-gray-50 font-inter text-[#111827]">
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b px-6 py-4 pt-[env(safe-area-inset-top)] flex justify-between items-center">
-        <h1 className="text-xl font-bold tracking-tight text-[#111827]">
+        <h1 className="text-xl font-bold tracking-tight">
           {view === 'history' ? 'Mine Emner' : view === 'capture' ? 'Nyt Emne' : view === 'review' ? 'Gennemse' : 'Indstillinger'}
         </h1>
       </header>
@@ -434,7 +467,7 @@ const App: React.FC = () => {
                   key={item.id} 
                   item={item} 
                   onDelete={handleDeleteHistoryItem} 
-                  onClick={() => { setReviewItem(item); setView('review'); }} 
+                  onClick={() => { setReviewItem(item); setView('review'); setShowSimilarLinks(false); }} 
                 />
               ))
             )}
@@ -477,8 +510,28 @@ const App: React.FC = () => {
               />
             </section>
 
-            <button disabled={capturedPhotos.length === 0 || isAnalyzing} onClick={handleAnalyze} className="w-full bg-[#2563eb] text-white py-5 rounded-[22px] font-bold text-lg shadow-xl active:scale-95 transition-all disabled:opacity-50">
-              {isAnalyzing ? "Analyserer..." : "Identificer & Prissæt"}
+            {analysisError && (
+              <div className="bg-red-50 border border-red-100 p-4 rounded-[22px] animate-in fade-in zoom-in duration-200">
+                <div className="flex gap-3">
+                  <svg className="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-red-600 uppercase tracking-widest mb-1">Analyse-fejl</p>
+                    <p className="text-sm text-red-700 font-medium leading-relaxed">{analysisError}</p>
+                    <button onClick={() => setAnalysisError(null)} className="mt-2 text-[10px] font-black text-red-500 uppercase tracking-tighter hover:underline">Fjern besked</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <button disabled={capturedPhotos.length === 0 || isAnalyzing} onClick={handleAnalyze} className="w-full bg-[#2563eb] text-white py-5 rounded-[22px] font-bold text-lg shadow-xl active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3">
+              {isAnalyzing ? (
+                <>
+                  <div className="animate-spin h-5 w-5 border-2 border-white/30 border-t-white rounded-full" />
+                  <span>Analyserer...</span>
+                </>
+              ) : "Identificer & Prissæt"}
             </button>
           </div>
         )}
@@ -495,7 +548,7 @@ const App: React.FC = () => {
                   <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest px-1">Titel</label>
                   <VoiceInput onResult={(t) => setReviewItem({ ...reviewItem, description: t })} />
                 </div>
-                <input type="text" value={reviewItem.description} onChange={(e) => setReviewItem({ ...reviewItem, description: e.target.value })} className="w-full bg-[#F9FAFB] border-none rounded-[20px] p-4 text-base font-bold text-[#111827]" />
+                <input type="text" value={reviewItem.description} onChange={(e) => setReviewItem({ ...reviewItem, description: e.target.value })} className="w-full bg-[#F9FAFB] border-none rounded-[20px] p-4 text-base font-bold" />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
@@ -513,14 +566,56 @@ const App: React.FC = () => {
             <section className="bg-white rounded-[28px] p-6 ios-shadow space-y-4 border border-white">
               <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest px-1">Vare-detaljer</label>
               <div className="grid grid-cols-2 gap-3">
-                {['brand', 'type', 'color', 'size', 'condition'].map(field => (
+                {['brand', 'type', 'color', 'size', 'condition', 'material', 'style'].map(field => (
                   <div key={field} className="bg-[#F9FAFB] p-3 rounded-[16px]">
                     <span className="text-[9px] text-[#9CA3AF] uppercase font-bold block mb-1">{field}</span>
-                    <input className="w-full bg-transparent border-none p-0 text-xs font-bold text-[#111827]" value={reviewItem.details?.[field as keyof typeof reviewItem.details] || ''} onChange={(e) => setReviewItem({ ...reviewItem, details: { ...reviewItem.details, [field]: e.target.value } })} />
+                    <input className="w-full bg-transparent border-none p-0 text-xs font-bold" value={reviewItem.details?.[field as keyof typeof reviewItem.details] || ''} onChange={(e) => setReviewItem({ ...reviewItem, details: { ...reviewItem.details, [field]: e.target.value } })} />
                   </div>
                 ))}
               </div>
             </section>
+
+            {/* Collapsible Similar Links Section */}
+            {reviewItem.similarLinks && reviewItem.similarLinks.length > 0 && (
+              <section className="bg-white rounded-[28px] overflow-hidden ios-shadow border border-white">
+                <button 
+                  onClick={() => setShowSimilarLinks(!showSimilarLinks)}
+                  className="w-full p-6 flex justify-between items-center active:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <svg className={`w-5 h-5 text-blue-600 transition-transform ${showSimilarLinks ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                    </svg>
+                    <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest">Lignende varer til salg ({reviewItem.similarLinks.length})</label>
+                  </div>
+                </button>
+                {showSimilarLinks && (
+                  <div className="px-6 pb-6 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                    {reviewItem.similarLinks.map((link, idx) => {
+                      let domain = "Link";
+                      try { domain = new URL(link).hostname.replace('www.', ''); } catch(e) {}
+                      return (
+                        <a 
+                          key={idx} 
+                          href={link} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between bg-[#F9FAFB] p-4 rounded-[16px] group active:bg-gray-100 transition-all border border-transparent hover:border-blue-100"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[9px] font-black text-blue-600 uppercase tracking-tighter block mb-0.5">{domain}</span>
+                            <div className="text-[11px] font-semibold text-[#111827] truncate">{link}</div>
+                          </div>
+                          <svg className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors shrink-0 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
 
             <button onClick={() => {
               const item = { ...reviewItem, id: reviewItem.id || Date.now().toString(), timestamp: Date.now() } as CircleItem;
@@ -529,7 +624,141 @@ const App: React.FC = () => {
               setView('history');
               setCapturedPhotos([]);
               setVoiceContext("");
+              setAnalysisError(null);
             }} className="w-full bg-[#2563eb] text-white py-5 rounded-[22px] font-bold text-lg shadow-xl active:scale-95 transition-all">Gem Emne</button>
+          </div>
+        )}
+
+        {view === 'settings' && (
+          <div className="space-y-6 animate-in fade-in pb-10">
+            {/* AI Settings Section */}
+            <section className="bg-white rounded-[28px] overflow-hidden ios-shadow border border-white">
+              <div className="p-5 border-b border-gray-50 flex justify-between items-center">
+                <h3 className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-widest px-1">AI Konfiguration</h3>
+                <span className="bg-green-100 text-green-600 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">Forbundet</span>
+              </div>
+              <div className="divide-y divide-gray-50">
+                <div className="p-5 flex justify-between items-center">
+                  <span className="text-sm font-semibold">Udbyder</span>
+                  <select 
+                    value={settings.provider} 
+                    onChange={(e) => {
+                      const newProvider = e.target.value;
+                      const defaultModel = MODELS_BY_PROVIDER[newProvider]?.[0]?.id || "";
+                      setSettings({...settings, provider: newProvider, model: defaultModel});
+                    }}
+                    className="bg-transparent text-sm font-bold text-blue-600 outline-none"
+                  >
+                    {PROVIDERS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+                
+                <div className="p-5 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-semibold">Model</span>
+                    <div className="flex items-center gap-2">
+                      <select 
+                        value={settings.model} 
+                        onChange={(e) => setSettings({...settings, model: e.target.value})}
+                        className="bg-transparent text-sm font-bold text-blue-600 outline-none text-right max-w-[150px] truncate"
+                      >
+                        {MODELS_BY_PROVIDER[settings.provider]?.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between bg-gray-50/50 p-3 rounded-xl border border-gray-100">
+                    <div className="flex items-center gap-2 text-[#9CA3AF]">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      <span className="text-[10px] font-bold uppercase tracking-tight">{currentProvider?.name}: {settings.model}</span>
+                    </div>
+                    {currentProvider?.apiKeyUrl && (
+                      <a 
+                        href={currentProvider.apiKeyUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-1 uppercase tracking-tighter"
+                      >
+                        Hent nøgle
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Prompt configuration section */}
+            <section className="bg-white rounded-[28px] overflow-hidden ios-shadow border border-white">
+              <div className="p-5 border-b border-gray-50 flex justify-between items-center">
+                <h3 className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-widest px-1">Prompt Konfiguration</h3>
+                <button 
+                  onClick={() => setSettings({...settings, customPrompt: DEFAULT_SETTINGS.customPrompt})}
+                  className="text-[9px] font-black text-blue-600 uppercase tracking-tighter active:scale-95 transition-transform"
+                >
+                  Nulstil
+                </button>
+              </div>
+              <div className="p-5">
+                <textarea 
+                  value={settings.customPrompt}
+                  onChange={(e) => setSettings({...settings, customPrompt: e.target.value})}
+                  placeholder="Indtast instruktioner til AI..."
+                  rows={8}
+                  className="w-full bg-[#F9FAFB] border-none rounded-[20px] p-4 text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-gray-300 leading-relaxed"
+                />
+                <p className="mt-3 text-[9px] text-[#9CA3AF] font-medium leading-normal px-1">
+                  Brug <span className="text-blue-500 font-bold">{"{language}"}</span> og <span className="text-blue-500 font-bold">{"{currency}"}</span> som pladsholdere for de valgte indstillinger.
+                </p>
+              </div>
+            </section>
+
+            {/* Regional Settings Section */}
+            <section className="bg-white rounded-[28px] overflow-hidden ios-shadow border border-white">
+              <div className="p-5 border-b border-gray-50">
+                <h3 className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-widest px-1">Regionalt</h3>
+              </div>
+              <div className="divide-y divide-gray-50">
+                <div className="p-5 flex justify-between items-center">
+                  <span className="text-sm font-semibold">Sprog</span>
+                  <select 
+                    value={settings.language} 
+                    onChange={(e) => setSettings({...settings, language: e.target.value})}
+                    className="bg-transparent text-sm font-bold text-blue-600 outline-none"
+                  >
+                    {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                </div>
+                <div className="p-5 flex justify-between items-center">
+                  <span className="text-sm font-semibold">Valuta</span>
+                  <select 
+                    value={settings.currency} 
+                    onChange={(e) => setSettings({...settings, currency: e.target.value})}
+                    className="bg-transparent text-sm font-bold text-blue-600 outline-none"
+                  >
+                    {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+            </section>
+
+            {/* Account Section */}
+            <section className="bg-white rounded-[28px] overflow-hidden ios-shadow border border-white">
+              <div className="p-5 border-b border-gray-50">
+                <h3 className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-widest px-1">Brugerkonto</h3>
+              </div>
+              <div className="p-5 flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold truncate max-w-[180px]">{user?.email}</span>
+                  <span className="text-[10px] font-bold text-[#9CA3AF] uppercase">Logget ind</span>
+                </div>
+                <button 
+                  onClick={handleLogout}
+                  className="bg-red-50 text-red-600 px-5 py-2 rounded-full text-xs font-bold active:scale-95 transition-all border border-red-100"
+                >
+                  Log ud
+                </button>
+              </div>
+            </section>
           </div>
         )}
       </main>
@@ -537,14 +766,14 @@ const App: React.FC = () => {
       {cropIndex !== null && <CropModal src={capturedPhotos[cropIndex]} onCancel={() => setCropIndex(null)} onCrop={(res) => { setCapturedPhotos(p => p.map((img, i) => i === cropIndex ? res : img)); setCropIndex(null); }} />}
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-100 safe-area-bottom px-10 py-3 flex justify-between items-center z-50">
-        <button onClick={() => setView('history')} className={`flex flex-col items-center gap-1.5 ${view === 'history' ? 'text-blue-600' : 'text-gray-300'}`}>
+        <button onClick={() => { setView('history'); setAnalysisError(null); }} className={`flex flex-col items-center gap-1.5 ${view === 'history' ? 'text-blue-600' : 'text-gray-300'}`}>
           <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
           <span className="text-[9px] font-bold uppercase tracking-widest">Varer</span>
         </button>
-        <button onClick={() => { if (view !== 'capture') setView('capture'); else fileInputRef.current?.click(); }} className="bg-[#2563eb] text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center -translate-y-6 border-4 border-white active:scale-90 transition-all">
+        <button onClick={() => { if (view !== 'capture') setView('capture'); else fileInputRef.current?.click(); setAnalysisError(null); }} className="bg-[#2563eb] text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center -translate-y-6 border-4 border-white active:scale-90 transition-all">
           <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" /></svg>
         </button>
-        <button onClick={() => setView('settings')} className={`flex flex-col items-center gap-1.5 ${view === 'settings' ? 'text-blue-600' : 'text-gray-300'}`}>
+        <button onClick={() => { setView('settings'); setAnalysisError(null); }} className={`flex flex-col items-center gap-1.5 ${view === 'settings' ? 'text-blue-600' : 'text-gray-300'}`}>
           <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z" /><path fillRule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 010-1.113zM17.25 12a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0z" clipRule="evenodd" /></svg>
           <span className="text-[9px] font-bold uppercase tracking-widest">Profil</span>
         </button>
