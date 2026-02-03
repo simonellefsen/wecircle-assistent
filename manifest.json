@@ -1,0 +1,17 @@
+
+{
+  "short_name": "WeCircle",
+  "name": "WeCircle Assistent",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3514/3514491.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#2563eb",
+  "background_color": "#F9FAFB"
+}

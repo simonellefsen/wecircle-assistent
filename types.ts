@@ -1,0 +1,33 @@
+
+export interface AppSettings {
+  provider: string;
+  model: string;
+  language: string;
+  currency: string;
+  customPrompt: string;
+  apiKeys: Record<string, string>;
+}
+
+export interface CircleItem {
+  id: string;
+  timestamp: number;
+  photos: string[]; // base64 strings
+  description: string;
+  price: number;
+  currency: string;
+  details: {
+    brand?: string;
+    type?: string;
+    color?: string;
+    size?: string;
+  };
+}
+
+export interface AIResult {
+  description: string;
+  price: number;
+  brand: string;
+  type: string;
+  color: string;
+  size: string;
+}

@@ -1,0 +1,7 @@
+{
+  "name": "Copy of WeCircle Assistent",
+  "description": "Your AI companion for circular sales. Identify items, estimate prices, and generate perfect listing descriptions instantly.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
