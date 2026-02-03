@@ -1,5 +1,4 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
 import { AppSettings, AIResult } from "../types";
 
 export class AnalysisError extends Error {
@@ -9,17 +8,9 @@ export class AnalysisError extends Error {
   }
 }
 
-export const analyzeItem = async (
-  images: string[],
-  settings: AppSettings,
-  voiceContext?: string
-): Promise<AIResult> => {
-  if (!images || images.length === 0) {
-    throw new AnalysisError("Ingen billeder fundet til analyse.", 'format');
-  }
+const API_ENDPOINT = import.meta.env.VITE_ANALYZE_URL || "/api/analyze";
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
+const buildPrompt = (settings: AppSettings, voiceContext?: string) => {
   let prompt = settings.customPrompt
     .replace('{language}', settings.language)
     .replace('{currency}', settings.currency);
@@ -36,85 +27,46 @@ Du SKAL prioritere at finde links fra de danske genbrugsplatforme 'Trendsales' o
     prompt += `\n\nBRUGER-KONTEKST (Vigtigt!): ${voiceContext}`;
   }
 
-  const imageParts = images.map((img, index) => {
-    const parts = img.split(',');
-    if (parts.length < 2) {
-      throw new AnalysisError(`Billede ${index + 1} er i et ugyldigt format.`, 'format');
-    }
-    return {
-      inlineData: {
-        mimeType: "image/jpeg",
-        data: parts[1]
-      }
-    };
-  });
+  return prompt;
+};
+
+export const analyzeItem = async (
+  images: string[],
+  settings: AppSettings,
+  voiceContext?: string
+): Promise<AIResult> => {
+  if (!images || images.length === 0) {
+    throw new AnalysisError("Ingen billeder fundet til analyse.", 'format');
+  }
 
   try {
-    const response = await ai.models.generateContent({
-      model: settings.model,
-      contents: {
-        parts: [
-          ...imageParts,
-          { text: prompt }
-        ]
+    const response = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
       },
-      config: {
-        tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            description: { type: Type.STRING },
-            price: { type: Type.NUMBER },
-            priceNew: { type: Type.NUMBER },
-            brand: { type: Type.STRING },
-            type: { type: Type.STRING },
-            color: { type: Type.STRING },
-            size: { type: Type.STRING },
-            condition: { type: Type.STRING },
-            material: { type: Type.STRING },
-            style: { type: Type.STRING },
-            similarLinks: { 
-              type: Type.ARRAY, 
-              items: { type: Type.STRING }
-            }
-          },
-          required: ['description', 'price']
-        }
-      }
+      body: JSON.stringify({
+        images,
+        settings,
+        prompt: buildPrompt(settings, voiceContext)
+      })
     });
 
-    const text = response.text;
-    
-    if (!text) {
-      // Check for safety ratings if text is missing
-      const candidate = response.candidates?.[0];
-      if (candidate?.finishReason === 'SAFETY') {
-        throw new AnalysisError("Analysen blev blokeret af sikkerhedshensyn. Billedet kan indeholde upassende indhold.", 'safety');
-      }
-      throw new AnalysisError("AI'en returnerede en tom respons. Prøv venligst igen.", 'api');
+    if (!response.ok) {
+      const message = await response.text();
+      throw new AnalysisError(message || "API-fejl under analyse.", 'api');
     }
 
-    try {
-      return JSON.parse(text) as AIResult;
-    } catch (parseErr) {
-      console.error("Parse error:", text);
-      throw new AnalysisError("Kunne ikke læse AI-svaret. Formatet var ugyldigt.", 'parse');
-    }
+    const result = await response.json();
+    return result as AIResult;
   } catch (err: any) {
     if (err instanceof AnalysisError) throw err;
-    
-    const errMsg = err.message || "";
-    if (errMsg.includes("fetch")) {
+
+    const errMsg = err?.message || "";
+    if (errMsg.includes('Failed to fetch') || errMsg.includes('NetworkError')) {
       throw new AnalysisError("Netværksfejl. Tjek din internetforbindelse og prøv igen.", 'network');
     }
-    if (errMsg.includes("429")) {
-      throw new AnalysisError("API-begrænsning nået (Too Many Requests). Vent et øjeblik og prøv igen.", 'api');
-    }
-    if (errMsg.includes("API_KEY_INVALID")) {
-      throw new AnalysisError("Ugyldig API-nøgle. Tjek dine indstillinger.", 'api');
-    }
-    
-    throw new AnalysisError(`Der opstod en uventet fejl under analysen: ${err.message}`, 'api');
+
+    throw new AnalysisError(`Der opstod en uventet fejl under analysen: ${errMsg}`, 'api');
   }
 };

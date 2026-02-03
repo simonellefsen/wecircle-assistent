@@ -25,6 +25,12 @@ export const PROVIDERS = [
     name: 'xAI (Grok)', 
     icon: '✖️', 
     apiKeyUrl: 'https://console.x.ai/' 
+  },
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    icon: '🌐',
+    apiKeyUrl: 'https://openrouter.ai/keys'
   }
 ];
 
@@ -43,6 +49,10 @@ export const MODELS_BY_PROVIDER: Record<string, { id: string, name: string }[]> 
   ],
   xai: [
     { id: 'grok-2-vision-latest', name: 'Grok-2 Vision' }
+  ],
+  openrouter: [
+    { id: 'openrouter/anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet (OpenRouter)' },
+    { id: 'openrouter/google/gemini-2.0-flash-thinking-exp', name: 'Gemini 2.0 Flash Thinking (OpenRouter)' }
   ]
 };
 
