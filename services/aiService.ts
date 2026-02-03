@@ -1,5 +1,5 @@
 
-import { AppSettings, AIResult } from "../types";
+import type { AppSettings, AIResult } from "../types";
 
 export class AnalysisError extends Error {
   constructor(public message: string, public type: 'api' | 'safety' | 'format' | 'network' | 'parse') {

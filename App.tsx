@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { analyzeItem, AnalysisError } from './services/aiService';
+import { analyzeItem } from './services/aiService';
 import * as Storage from './services/storageService';
-import { AppSettings, CircleItem } from './types';
+import type { AppSettings, CircleItem } from './types';
 import { DEFAULT_SETTINGS, LANGUAGES, CURRENCIES, PROVIDERS, MODELS_BY_PROVIDER } from './constants';
 
 const WHITELIST = [
@@ -364,13 +364,17 @@ const App: React.FC = () => {
       try {
         const parsed = JSON.parse(savedUser);
         if (WHITELIST.includes(parsed.email)) setUser(parsed);
-      } catch (e) {}
+      } catch (error) {
+        console.warn("Kunne ikke læse cached brugerdata", error);
+      }
     }
     const loadData = async () => {
       try {
         const storedHistory = await Storage.getHistory();
         setHistory(storedHistory);
-      } catch (err) {} finally { setIsLoadingHistory(false); }
+      } catch (error) {
+        console.warn("Kunne ikke hente historik", error);
+      } finally { setIsLoadingHistory(false); }
     };
     loadData();
   }, []);
@@ -400,6 +404,7 @@ const App: React.FC = () => {
       await Storage.deleteHistoryItem(id);
       setHistory(prev => prev.filter(item => item.id !== id));
     } catch (err) {
+      console.error("Kunne ikke slette varen.", err);
       alert("Kunne ikke slette varen.");
     }
   };
@@ -593,7 +598,9 @@ const App: React.FC = () => {
                   <div className="px-6 pb-6 space-y-3 animate-in slide-in-from-top-2 duration-200">
                     {reviewItem.similarLinks.map((link, idx) => {
                       let domain = "Link";
-                      try { domain = new URL(link).hostname.replace('www.', ''); } catch(e) {}
+                      try { domain = new URL(link).hostname.replace('www.', ''); } catch(error) {
+                        console.warn("Ugyldigt link i similarLinks", link, error);
+                      }
                       return (
                         <a 
                           key={idx} 

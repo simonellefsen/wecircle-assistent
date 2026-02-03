@@ -1,5 +1,5 @@
 
-import { CircleItem } from "../types";
+import type { CircleItem } from "../types";
 
 const DB_NAME = "WeCircleDB";
 const STORE_NAME = "history";

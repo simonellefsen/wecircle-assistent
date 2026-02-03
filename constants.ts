@@ -1,5 +1,5 @@
 
-import { AppSettings } from './types';
+import type { AppSettings } from './types';
 
 export const PROVIDERS = [
   { 

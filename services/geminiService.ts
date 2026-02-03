@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { AppSettings, AIResult } from "../types";
+import type { AppSettings, AIResult } from "../types";
 
 export const analyzeItem = async (
   images: string[],

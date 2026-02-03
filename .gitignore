@@ -1,0 +1,33 @@
+# General
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+.parcel-cache/
+*.tsbuildinfo
+
+# Env & secrets
+.env
+.env.*
+!.env.local.example
+
+# Testing / coverage
+coverage/
+.nyc_output/
+
+# IDE / tooling
+.idea/
+.vscode/
+*.code-workspace
+
+# Vercel / deployment
+.vercel/
+
+# OS generated
+._*
