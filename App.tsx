@@ -174,21 +174,30 @@ const SwipeableListItem: React.FC<{
       >
         <img src={item.photos[0]} className="w-20 h-20 rounded-2xl object-cover bg-gray-100" />
         <div className="flex-1 py-1 flex flex-col justify-between">
-          <div>
-            <p className="text-sm font-bold text-blue-600 mb-0.5">{formatCurrency(item.price, item.currency || 'DKK')}</p>
-            <p className="text-[11px] font-semibold text-green-600 mb-1">Efter WeCircle: {formatCurrency(netPrice, item.currency || 'DKK')}</p>
-            <p className="text-base font-semibold text-[#111827] line-clamp-2 leading-tight">{item.description}</p>
-            <div className="mt-2 flex items-center gap-2">
-              <button
-                onClick={handleCopyDescription}
-                disabled={!item.description}
-                className="text-[10px] font-black uppercase tracking-tighter text-blue-600 hover:underline disabled:opacity-40"
-              >
-                Kopiér
-              </button>
-              {copied && <span className="text-[10px] font-black text-green-600 uppercase tracking-tighter">Kopieret!</span>}
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-blue-600 mb-0.5">{formatCurrency(item.price, item.currency || 'DKK')}</p>
+              <p className="text-[11px] font-semibold text-green-600 mb-1">Efter WeCircle: {formatCurrency(netPrice, item.currency || 'DKK')}</p>
             </div>
+            <button
+              onClick={handleCopyDescription}
+              disabled={!item.description}
+              title="Kopier titel"
+              className={`shrink-0 w-9 h-9 rounded-full border border-blue-100 flex items-center justify-center transition-all ${copied ? 'bg-blue-600 text-white' : 'bg-white text-blue-600 hover:bg-blue-50'} disabled:opacity-40`}
+            >
+              {copied ? (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h8a2 2 0 012 2v9a2 2 0 01-2 2H8a2 2 0 01-2-2V9a2 2 0 012-2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7V5a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2h1" />
+                </svg>
+              )}
+            </button>
           </div>
+          <p className="text-base font-semibold text-[#111827] line-clamp-2 leading-tight mt-1">{item.description}</p>
         </div>
 
         {!isTouchDevice && (
