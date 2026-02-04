@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { analyzeItem, ANALYZE_API_URL } from './services/aiService';
 import * as Storage from './services/storageService';
 import type { AppSettings, CircleItem } from './types';
@@ -198,25 +198,35 @@ const VoiceInput: React.FC<{ onResult: (text: string) => void; className?: strin
   <VoiceInputButton onResult={onResult} className={className} />
 );
 
+const MIN_CROP_SIZE = 40;
+
 const CropModal: React.FC<{ src: string; onCrop: (cropped: string) => void; onCancel: () => void }> = ({ src, onCrop, onCancel }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [currentSrc, setCurrentSrc] = useState(src);
   const [imgObj, setImgObj] = useState<HTMLImageElement | null>(null);
-  const [crop, setCrop] = useState({ x: 0, y: 0, size: 300 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [lastTouch, setLastTouch] = useState({ x: 0, y: 0 });
+  const [crop, setCrop] = useState({ x: 0, y: 0, width: 300, height: 300 });
+  const [interaction, setInteraction] = useState<'move' | 'resize' | null>(null);
+  const [activeHandle, setActiveHandle] = useState<'nw' | 'ne' | 'sw' | 'se' | null>(null);
+  const [dragStart, setDragStart] = useState<{ pointerCanvasX: number; pointerCanvasY: number; crop: typeof crop } | null>(null);
+  const [canvasMetrics, setCanvasMetrics] = useState<{ offsetX: number; offsetY: number; ratio: number }>({ offsetX: 0, offsetY: 0, ratio: 1 });
 
   useEffect(() => {
     const img = new Image();
     img.src = currentSrc;
     img.onload = () => {
       setImgObj(img);
-      const minSize = Math.min(img.width, img.height);
-      setCrop({ size: minSize, x: (img.width - minSize) / 2, y: (img.height - minSize) / 2 });
+      const initWidth = Math.max(MIN_CROP_SIZE, img.width * 0.7);
+      const initHeight = Math.max(MIN_CROP_SIZE, img.height * 0.7);
+      setCrop({
+        width: initWidth,
+        height: initHeight,
+        x: (img.width - initWidth) / 2,
+        y: (img.height - initHeight) / 2,
+      });
     };
   }, [currentSrc]);
 
-  useEffect(() => {
+  const redrawCanvas = useCallback(() => {
     if (!imgObj || !canvasRef.current) return;
     const ctx = canvasRef.current.getContext('2d');
     if (!ctx) return;
@@ -227,43 +237,168 @@ const CropModal: React.FC<{ src: string; onCrop: (cropped: string) => void; onCa
     const offsetX = (canvas.width - displayW) / 2;
     const offsetY = (canvas.height - displayH) / 2;
 
+    setCanvasMetrics({ offsetX, offsetY, ratio });
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.globalAlpha = 0.4;
     ctx.drawImage(imgObj, offsetX, offsetY, displayW, displayH);
-    ctx.globalAlpha = 1.0;
+
     ctx.save();
-    ctx.beginPath();
-    ctx.rect(offsetX + crop.x * ratio, offsetY + crop.y * ratio, crop.size * ratio, crop.size * ratio);
-    ctx.clip();
-    ctx.drawImage(imgObj, offsetX, offsetY, displayW, displayH);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(
+      offsetX + crop.x * ratio,
+      offsetY + crop.y * ratio,
+      crop.width * ratio,
+      crop.height * ratio
+    );
+    ctx.strokeStyle = '#60A5FA';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(
+      offsetX + crop.x * ratio,
+      offsetY + crop.y * ratio,
+      crop.width * ratio,
+      crop.height * ratio
+    );
+
+    const handles: Array<{ x: number; y: number }> = [
+      { x: offsetX + crop.x * ratio, y: offsetY + crop.y * ratio },
+      { x: offsetX + (crop.x + crop.width) * ratio, y: offsetY + crop.y * ratio },
+      { x: offsetX + crop.x * ratio, y: offsetY + (crop.y + crop.height) * ratio },
+      { x: offsetX + (crop.x + crop.width) * ratio, y: offsetY + (crop.y + crop.height) * ratio },
+    ];
+    ctx.fillStyle = '#fff';
+    handles.forEach(({ x, y }) => {
+      ctx.fillRect(x - 6, y - 6, 12, 12);
+      ctx.strokeRect(x - 6, y - 6, 12, 12);
+    });
     ctx.restore();
-    ctx.strokeStyle = '#3b82f6';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(offsetX + crop.x * ratio, offsetY + crop.y * ratio, crop.size * ratio, crop.size * ratio);
   }, [imgObj, crop]);
+
+  useEffect(() => {
+    redrawCanvas();
+  }, [imgObj, crop, redrawCanvas]);
 
   const rotateImage = async () => {
     const rotated = await rotateImageBase64(currentSrc);
     setCurrentSrc(rotated);
   };
 
-  const handleStart = (clientX: number, clientY: number) => {
-    setIsDragging(true);
-    setLastTouch({ x: clientX, y: clientY });
+  const clampValue = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+  const getPointer = (clientX: number, clientY: number) => {
+    if (!canvasRef.current) return null;
+    const rect = canvasRef.current.getBoundingClientRect();
+    return {
+      canvasX: clientX - rect.left,
+      canvasY: clientY - rect.top,
+    };
   };
 
-  const handleMove = (clientX: number, clientY: number) => {
-    if (!isDragging || !imgObj || !canvasRef.current) return;
-    const dx = clientX - lastTouch.x;
-    const dy = clientY - lastTouch.y;
-    const canvas = canvasRef.current;
-    const ratio = Math.min(canvas.width / imgObj.width, canvas.height / imgObj.height);
-    setCrop(prev => ({
-      ...prev,
-      x: Math.max(0, Math.min(imgObj.width - prev.size, prev.x + dx / ratio)),
-      y: Math.max(0, Math.min(imgObj.height - prev.size, prev.y + dy / ratio))
-    }));
-    setLastTouch({ x: clientX, y: clientY });
+  const getHandleAtPoint = (canvasX: number, canvasY: number): typeof activeHandle => {
+    const { offsetX, offsetY, ratio } = canvasMetrics;
+    const positions: Record<'nw' | 'ne' | 'sw' | 'se', { x: number; y: number }> = {
+      nw: { x: offsetX + crop.x * ratio, y: offsetY + crop.y * ratio },
+      ne: { x: offsetX + (crop.x + crop.width) * ratio, y: offsetY + crop.y * ratio },
+      sw: { x: offsetX + crop.x * ratio, y: offsetY + (crop.y + crop.height) * ratio },
+      se: { x: offsetX + (crop.x + crop.width) * ratio, y: offsetY + (crop.y + crop.height) * ratio },
+    };
+    const HIT = 16;
+    return (Object.entries(positions) as Array<[typeof activeHandle, { x: number; y: number }]>).find(
+      ([, pos]) =>
+        Math.abs(canvasX - pos.x) <= HIT &&
+        Math.abs(canvasY - pos.y) <= HIT
+    )?.[0] ?? null;
+  };
+
+  const handlePointerDown = (clientX: number, clientY: number) => {
+    if (!imgObj) return;
+    const pointer = getPointer(clientX, clientY);
+    if (!pointer) return;
+    const handle = getHandleAtPoint(pointer.canvasX, pointer.canvasY);
+    const { offsetX, offsetY, ratio } = canvasMetrics;
+    const canvasCrop = {
+      x: offsetX + crop.x * ratio,
+      y: offsetY + crop.y * ratio,
+      width: crop.width * ratio,
+      height: crop.height * ratio,
+    };
+    const inside =
+      pointer.canvasX >= canvasCrop.x &&
+      pointer.canvasX <= canvasCrop.x + canvasCrop.width &&
+      pointer.canvasY >= canvasCrop.y &&
+      pointer.canvasY <= canvasCrop.y + canvasCrop.height;
+    if (handle) {
+      setInteraction('resize');
+      setActiveHandle(handle);
+      setDragStart({ pointerCanvasX: pointer.canvasX, pointerCanvasY: pointer.canvasY, crop });
+    } else if (inside) {
+      setInteraction('move');
+      setActiveHandle(null);
+      setDragStart({ pointerCanvasX: pointer.canvasX, pointerCanvasY: pointer.canvasY, crop });
+    }
+  };
+
+  const handlePointerMove = (clientX: number, clientY: number) => {
+    if (!dragStart || !imgObj || !interaction) return;
+    const pointer = getPointer(clientX, clientY);
+    if (!pointer) return;
+    const deltaCanvasX = pointer.canvasX - dragStart.pointerCanvasX;
+    const deltaCanvasY = pointer.canvasY - dragStart.pointerCanvasY;
+    const deltaX = deltaCanvasX / canvasMetrics.ratio;
+    const deltaY = deltaCanvasY / canvasMetrics.ratio;
+
+    const base = dragStart.crop;
+    const limitX = (x: number) => clampValue(x, 0, imgObj.width - MIN_CROP_SIZE);
+    const limitY = (y: number) => clampValue(y, 0, imgObj.height - MIN_CROP_SIZE);
+
+    const next = { ...base };
+
+    if (interaction === 'move') {
+      next.x = clampValue(base.x + deltaX, 0, imgObj.width - base.width);
+      next.y = clampValue(base.y + deltaY, 0, imgObj.height - base.height);
+      setCrop(next);
+      return;
+    }
+
+    if (interaction === 'resize' && activeHandle) {
+      switch (activeHandle) {
+        case 'nw': {
+          const newX = limitX(base.x + deltaX);
+          const newY = limitY(base.y + deltaY);
+          next.width = clampValue(base.width + (base.x - newX), MIN_CROP_SIZE, imgObj.width - newX);
+          next.height = clampValue(base.height + (base.y - newY), MIN_CROP_SIZE, imgObj.height - newY);
+          next.x = newX;
+          next.y = newY;
+          break;
+        }
+        case 'ne': {
+          const newY = limitY(base.y + deltaY);
+          next.width = clampValue(base.width + deltaX, MIN_CROP_SIZE, imgObj.width - base.x);
+          next.height = clampValue(base.height + (base.y - newY), MIN_CROP_SIZE, imgObj.height - newY);
+          next.y = newY;
+          break;
+        }
+        case 'sw': {
+          const newX = limitX(base.x + deltaX);
+          next.width = clampValue(base.width + (base.x - newX), MIN_CROP_SIZE, imgObj.width - newX);
+          next.height = clampValue(base.height + deltaY, MIN_CROP_SIZE, imgObj.height - base.y);
+          next.x = newX;
+          break;
+        }
+        case 'se': {
+          next.width = clampValue(base.width + deltaX, MIN_CROP_SIZE, imgObj.width - base.x);
+          next.height = clampValue(base.height + deltaY, MIN_CROP_SIZE, imgObj.height - base.y);
+          break;
+        }
+      }
+      setCrop(next);
+    }
+  };
+
+  const handlePointerEnd = () => {
+    setInteraction(null);
+    setActiveHandle(null);
+    setDragStart(null);
   };
 
   return (
@@ -278,10 +413,15 @@ const CropModal: React.FC<{ src: string; onCrop: (cropped: string) => void; onCa
           </button>
           <button onClick={() => {
             if (!imgObj) return;
+            const maxSide = Math.max(crop.width, crop.height);
+            const scale = 1024 / maxSide;
             const finalCanvas = document.createElement('canvas');
-            finalCanvas.width = 1024; finalCanvas.height = 1024;
-            finalCanvas.getContext('2d')?.drawImage(imgObj, crop.x, crop.y, crop.size, crop.size, 0, 0, 1024, 1024);
-            onCrop(finalCanvas.toDataURL('image/jpeg', 0.8));
+            finalCanvas.width = Math.max(1, Math.round(crop.width * scale));
+            finalCanvas.height = Math.max(1, Math.round(crop.height * scale));
+            finalCanvas
+              .getContext('2d')
+              ?.drawImage(imgObj, crop.x, crop.y, crop.width, crop.height, 0, 0, finalCanvas.width, finalCanvas.height);
+            onCrop(finalCanvas.toDataURL('image/jpeg', 0.85));
           }} className="bg-blue-600 text-white px-6 py-2 rounded-full font-bold">Udfør</button>
         </div>
       </div>
@@ -291,15 +431,18 @@ const CropModal: React.FC<{ src: string; onCrop: (cropped: string) => void; onCa
           width={window.innerWidth - 32} 
           height={window.innerHeight - 180} 
           className="rounded-xl"
-          onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
-          onMouseMove={(e) => handleMove(e.clientX, e.clientY)}
-          onMouseUp={() => setIsDragging(false)}
-          onTouchStart={(e) => handleStart(e.touches[0].clientX, e.touches[0].clientY)}
-          onTouchMove={(e) => handleMove(e.touches[0].clientX, e.touches[0].clientY)}
-          onTouchEnd={() => setIsDragging(false)}
+          onMouseDown={(e) => handlePointerDown(e.clientX, e.clientY)}
+          onMouseMove={(e) => handlePointerMove(e.clientX, e.clientY)}
+          onMouseUp={handlePointerEnd}
+          onMouseLeave={handlePointerEnd}
+          onTouchStart={(e) => handlePointerDown(e.touches[0].clientX, e.touches[0].clientY)}
+          onTouchMove={(e) => handlePointerMove(e.touches[0].clientX, e.touches[0].clientY)}
+          onTouchEnd={handlePointerEnd}
         />
       </div>
-      <p className="text-white/40 text-[10px] text-center mt-4 font-bold uppercase tracking-widest">Træk i billedet for at justere kvadratet</p>
+      <p className="text-white/40 text-[10px] text-center mt-4 font-bold uppercase tracking-widest">
+        Træk i området eller hjørnerne for at flytte og ændre størrelsen
+      </p>
     </div>
   );
 };

@@ -51,28 +51,17 @@ export const MODELS_BY_PROVIDER: Record<string, { id: string, name: string }[]> 
     { id: 'grok-2-vision-latest', name: 'Grok-2 Vision' }
   ],
   openrouter: [
-    { id: 'openai/gpt-4-vision-preview', name: 'OpenAI GPT-4 Vision Preview' },
     { id: 'openai/gpt-4.1', name: 'OpenAI GPT-4.1' },
     { id: 'google/gemini-2.5-flash', name: 'Google Gemini 2.5 Flash' },
-    { id: '01-ai/yi-vision', name: '01.AI Yi Vision' },
-    { id: 'x-ai/grok-2-vision-1212', name: 'xAI Grok-2 Vision 1212' },
     { id: 'x-ai/grok-4.1-fast', name: 'xAI Grok 4.1 Fast' },
-    { id: 'meta-llama/llama-3.2-11b-vision-instruct', name: 'Llama 3.2 11B Vision Instruct' },
-    { id: 'aion-labs/aion-1.0', name: 'Aion Labs 1.0' },
-    { id: 'qwen/qwen3-32b', name: 'Qwen 3 32B' },
     { id: 'amazon/nova-2-lite-v1', name: 'Amazon Nova 2 Lite v1' },
-    { id: 'nvidia/nemotron-nano-12b-v2-vl:free', name: 'NVIDIA Nemotron Nano 12B v2 VL (Free)' },
-    { id: 'deepseek/deepseek-r1-0528:free', name: 'DeepSeek R1 0528 (Free)' },
-    { id: 'qwen/qwen3-next-80b-a3b-instruct:free', name: 'Qwen3 Next 80B A3B Instruct (Free)' },
-    { id: 'openai/gpt-oss-120b:free', name: 'OpenAI GPT OSS 120B (Free)' },
-    { id: 'google/gemma-3n-e4b-it:free', name: 'Google Gemma 3n e4b IT (Free)' },
-    { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B Instruct (Free)' }
+    { id: 'nvidia/nemotron-nano-12b-v2-vl:free', name: 'NVIDIA Nemotron Nano 12B v2 VL (Free)' }
   ]
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  provider: 'google',
-  model: 'gemini-3-flash-preview',
+  provider: 'openrouter',
+  model: 'nvidia/nemotron-nano-12b-v2-vl:free',
   language: 'Dansk',
   currency: 'DKK',
   discountPercent: 0,
