@@ -36,7 +36,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1-dVV58S55qwbi_q5q6Df_n
 | `VITE_SUPABASE_URL` / `SUPABASE_URL` | Client/Server | Supabase project URL for the browser and serverless envs. |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Client | Publishable key for Supabase Auth (magic links). |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server | Service key used in API routes to send magic links and log throttling events. Keep server-side only. |
-| `APP_BASE_URL` | Server | Redirect target for Supabase magic links (e.g., `https://wecircle-assistent.vercel.app`). |
+| `APP_BASE_URL` | Server | Redirect target for Supabase magic links. Must include the scheme, e.g., `https://wecircle-assistent.vercel.app`. |
 | `RATE_LIMIT_SALT` | Server | Secret salt used when hashing IPs for throttling login requests. |
 
 Deployments on Vercel should configure these vars in the project settings so that `/api/analyze` can select the right provider and key at runtime.

@@ -16,6 +16,19 @@ const nowIso = () => new Date().toISOString();
 const minutesAgoIso = (minutes: number) =>
   new Date(Date.now() - minutes * 60 * 1000).toISOString();
 
+const resolveRedirectUrl = () => {
+  const raw = process.env.APP_BASE_URL || 'http://localhost:5173';
+  const normalized = raw.startsWith('http://') || raw.startsWith('https://')
+    ? raw
+    : `https://${raw}`;
+  try {
+    return new URL(normalized).toString();
+  } catch {
+    console.warn(`APP_BASE_URL is invalid ("${raw}"). Falling back to localhost.`);
+    return 'http://localhost:5173';
+  }
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -64,7 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       requested_at: nowIso(),
     });
 
-    const redirectUrl = process.env.APP_BASE_URL || 'http://localhost:5173';
+    const redirectUrl = resolveRedirectUrl();
     const { error } = await supabaseAdmin.auth.signInWithOtp({
       email,
       options: {
