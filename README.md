@@ -33,8 +33,30 @@ View your app in AI Studio: https://ai.studio/apps/drive/1-dVV58S55qwbi_q5q6Df_n
 | `XAI_API_KEY` | Server | Enables Grok-2 Vision through xAI’s API. |
 | `OPENROUTER_API_KEY` | Server | Enables any model hosted via OpenRouter (e.g., Claude 3.5 Sonnet). |
 | `ANTHROPIC_API_KEY` | Server | Reserved for native Anthropic integration once implemented. |
+| `VITE_SUPABASE_URL` / `SUPABASE_URL` | Client/Server | Supabase project URL for the browser and serverless envs. |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Client | Publishable key for Supabase Auth (magic links). |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server | Service key used in API routes to send magic links and log throttling events. Keep server-side only. |
+| `APP_BASE_URL` | Server | Redirect target for Supabase magic links (e.g., `https://wecircle-assistent.vercel.app`). |
+| `RATE_LIMIT_SALT` | Server | Secret salt used when hashing IPs for throttling login requests. |
 
 Deployments on Vercel should configure these vars in the project settings so that `/api/analyze` can select the right provider and key at runtime.
+
+### Supabase setup & magic links
+
+1. Install the [Supabase CLI](https://supabase.com/docs/guides/cli) and authenticate once:  
+   `npm install -g supabase && supabase login`
+2. Link the CLI to your project (replace `abcd1234` with your project ref from the Supabase dashboard):  
+   `supabase link --project-ref abcd1234`
+3. Apply the checked-in schema:  
+   `supabase db push`  
+   This executes `supabase/migrations/20260204T000000_initial_product_schema.sql`, which provisions:
+   - `profiles`, `user_settings`, and `user_plan_assignments` linked to `auth.users`
+   - `billing_plans` plus `usage_counters` for future tier/limit enforcement  
+   - `auth_throttle` plus indexes for rate-limiting the magic-link endpoint  
+   - RLS policies and triggers that keep `updated_at` automatically in sync.
+4. In the Supabase Dashboard → Authentication, enable **Email (Magic Link)** and add production/staging URLs in “Redirect URLs”. Optionally customize the email template for the brand.
+5. Set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_PUBLISHABLE_KEY` in `.env.local` and in Vercel project settings.
+6. Users can now request a magic link on the login screen; the `/api/auth/send-magic-link` route enforces per-email and per-IP throttling backed by the `auth_throttle` table before calling Supabase Auth.
 
 ## Quality gates (linting & tests)
 

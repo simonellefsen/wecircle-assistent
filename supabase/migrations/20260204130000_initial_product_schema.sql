@@ -1,0 +1,206 @@
+-- Enable helpful extensions ---------------------------------------------------
+create extension if not exists "pgcrypto";
+create extension if not exists "citext";
+
+-- Helper function to manage updated_at columns --------------------------------
+create or replace function public.set_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = timezone('utc', now());
+  return new;
+end;
+$$ language plpgsql;
+
+-- Profiles --------------------------------------------------------------------
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email citext unique,
+  display_name text,
+  avatar_url text,
+  role text default 'user',
+  metadata jsonb default '{}'::jsonb,
+  created_at timestamptz default timezone('utc', now()),
+  updated_at timestamptz default timezone('utc', now())
+);
+
+create trigger set_profiles_updated_at
+before update on public.profiles
+for each row execute procedure public.set_updated_at();
+
+alter table public.profiles enable row level security;
+
+create policy "Public profiles are readable by owner"
+  on public.profiles
+  for select
+  using (auth.uid() = id);
+
+create policy "Users manage their profile"
+  on public.profiles
+  for update
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
+
+-- User Settings ---------------------------------------------------------------
+create table if not exists public.user_settings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  language text default 'da',
+  currency text default 'DKK',
+  discount_percent numeric(5,2) default 0,
+  commission_percent numeric(5,2) default 20,
+  notification_preferences jsonb default '{"email": true, "push": false}'::jsonb,
+  ai_provider text default 'openrouter',
+  model_preference text default 'nvidia/nemotron-nano-12b-v2-vl:free',
+  created_at timestamptz default timezone('utc', now()),
+  updated_at timestamptz default timezone('utc', now()),
+  constraint user_settings_user_unique unique (user_id)
+);
+
+create trigger set_user_settings_updated_at
+before update on public.user_settings
+for each row execute procedure public.set_updated_at();
+
+alter table public.user_settings enable row level security;
+
+create policy "Users can read their settings"
+  on public.user_settings
+  for select
+  using (auth.uid() = user_id);
+
+create policy "Users can manage their settings"
+  on public.user_settings
+  for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users update their settings"
+  on public.user_settings
+  for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Plans & Limits --------------------------------------------------------------
+create type public.subscription_status as enum ('trialing', 'active', 'past_due', 'canceled');
+
+create table if not exists public.billing_plans (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  name text not null,
+  description text,
+  currency text default 'DKK',
+  monthly_price_cents integer,
+  annual_price_cents integer,
+  trial_days integer default 0,
+  usage_allowances jsonb default '{}'::jsonb,
+  is_active boolean default true,
+  created_at timestamptz default timezone('utc', now()),
+  updated_at timestamptz default timezone('utc', now())
+);
+
+create trigger set_billing_plans_updated_at
+before update on public.billing_plans
+for each row execute procedure public.set_updated_at();
+
+alter table public.billing_plans enable row level security;
+
+create policy "Plans readable by anyone"
+  on public.billing_plans
+  for select
+  to authenticated, anon
+  using (is_active);
+
+create table if not exists public.user_plan_assignments (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  plan_id uuid references public.billing_plans(id) on delete set null,
+  status public.subscription_status not null default 'trialing',
+  period_start timestamptz,
+  period_end timestamptz,
+  cancel_at timestamptz,
+  created_at timestamptz default timezone('utc', now()),
+  updated_at timestamptz default timezone('utc', now()),
+  constraint user_plan_assignments_user_unique unique (user_id)
+);
+
+create trigger set_user_plan_assignments_updated_at
+before update on public.user_plan_assignments
+for each row execute procedure public.set_updated_at();
+
+alter table public.user_plan_assignments enable row level security;
+
+create policy "Users can read their plan"
+  on public.user_plan_assignments
+  for select
+  using (auth.uid() = user_id);
+
+create policy "Service role manages plans"
+  on public.user_plan_assignments
+  using (auth.role() = 'service_role');
+
+-- Usage Tracking --------------------------------------------------------------
+create table if not exists public.usage_counters (
+  id bigint generated by default as identity primary key,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  metric text not null,
+  used bigint not null default 0,
+  limit_value bigint,
+  period_start date not null,
+  period_end date not null,
+  plan_snapshot jsonb default '{}'::jsonb,
+  created_at timestamptz default timezone('utc', now()),
+  updated_at timestamptz default timezone('utc', now()),
+  constraint usage_period_unique unique (user_id, metric, period_start, period_end)
+);
+
+create trigger set_usage_counters_updated_at
+before update on public.usage_counters
+for each row execute procedure public.set_updated_at();
+
+alter table public.usage_counters enable row level security;
+
+create policy "Users read their usage"
+  on public.usage_counters
+  for select
+  using (auth.uid() = user_id);
+
+create policy "Service role manages usage"
+  on public.usage_counters
+  using (auth.role() = 'service_role');
+
+-- Auth throttling helper ------------------------------------------------------
+create table if not exists public.auth_throttle (
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  ip_hash text not null,
+  requested_at timestamptz not null default timezone('utc', now())
+);
+
+create index if not exists idx_auth_throttle_email
+  on public.auth_throttle (email, requested_at desc);
+
+create index if not exists idx_auth_throttle_ip
+  on public.auth_throttle (ip_hash, requested_at desc);
+
+-- Auth hook to seed profile + settings ---------------------------------------
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, email, metadata)
+  values (new.id, new.email, coalesce(new.raw_user_meta_data, '{}'::jsonb))
+  on conflict (id) do update set email = excluded.email;
+
+  insert into public.user_settings (user_id)
+  values (new.id)
+  on conflict (user_id) do nothing;
+
+  insert into public.user_plan_assignments (user_id, status)
+  values (new.id, 'trialing')
+  on conflict (user_id) do nothing;
+
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute procedure public.handle_new_user();

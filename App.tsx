@@ -1,16 +1,12 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import type { User } from '@supabase/supabase-js';
 import { analyzeItem, ANALYZE_API_URL } from './services/aiService';
 import * as Storage from './services/storageService';
 import type { AppSettings, CircleItem } from './types';
 import { DEFAULT_SETTINGS, LANGUAGES, CURRENCIES, PROVIDERS, MODELS_BY_PROVIDER, DISCOUNT_OPTIONS } from './constants';
+import { supabase } from './supabaseClient';
 
-const WHITELIST = [
-  'stoffer@nose.dk',
-  'pgg@nose.dk',
-  'stilettorebel@hotmail.com',
-  'simon.ellefsen@gmail.com'
-];
 const USAGE_STORAGE_KEY = 'wecircle_usage';
 
 const formatCurrency = (amount: number, currency: string) => {
@@ -482,16 +478,29 @@ const VoiceInputButton: React.FC<{ onResult: (text: string) => void; className?:
   );
 };
 
-const LoginScreen: React.FC<{ onLogin: (email: string) => void }> = ({ onLogin }) => {
+const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
 
-  const handleLogin = () => {
-    const lowerEmail = email.toLowerCase().trim();
-    if (WHITELIST.includes(lowerEmail)) {
-      onLogin(lowerEmail);
-    } else {
-      setError("Adgang nægtet. E-mail ikke på listen.");
+  const handleSendLink = async () => {
+    if (!email) return;
+    setError(null);
+    setStatus('sending');
+    try {
+      const response = await fetch('/api/auth/send-magic-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Kunne ikke sende login-link.');
+      }
+      setStatus('sent');
+    } catch (err: any) {
+      setError(err.message || 'Kunne ikke sende login-link.');
+      setStatus('idle');
     }
   };
 
@@ -519,14 +528,23 @@ const LoginScreen: React.FC<{ onLogin: (email: string) => void }> = ({ onLogin }
         </div>
         {error && <div className="text-red-500 text-xs font-bold text-center">{error}</div>}
         <div className="space-y-4">
-          <button onClick={handleLogin} className="w-full bg-[#D1D1D1] text-[#717171] py-5 rounded-[22px] font-bold text-lg flex items-center justify-center gap-3 active:scale-95 transition-all shadow-sm">
-            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-            Log ind med Google
+          <button
+            onClick={handleSendLink}
+            disabled={status === 'sending' || !email}
+            className="w-full bg-[#2563eb] text-white py-5 rounded-[22px] font-bold text-lg flex items-center justify-center gap-3 active:scale-95 transition-all shadow-sm disabled:opacity-60"
+          >
+            {status === 'sending' ? (
+              <>
+                <div className="animate-spin h-5 w-5 border-2 border-white/40 border-t-white rounded-full" />
+                Sender link...
+              </>
+            ) : 'Send login-link'}
           </button>
-          <button onClick={handleLogin} className="w-full bg-[#838383] text-white py-5 rounded-[22px] font-bold text-lg flex items-center justify-center gap-3 active:scale-95 transition-all shadow-sm">
-            <svg className="w-6 h-6 mb-1" viewBox="0 0 384 512" fill="currentColor"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 21.8-88.5 21.8-11.4 0-53.8-24.3-89.8-23.6-47.5 1-89.2 27.2-113 70.3-48.4 87.4-12.4 217.3 35.1 285.4 23.3 33.7 51.5 71.3 87.7 70.1 34.6-1.2 47.9-22.3 89.8-22.3 41.9 0 54 22.3 90.5 21.6 37.1-.6 61.6-33.8 85-67.6 27.1-39.2 38.3-77.2 38.6-79.2-.8-.4-74.3-28.5-74.7-106.6zM280.4 71.5c16.1-19.4 26.9-46.3 23.9-73.1-23.3 1-51.2 15.6-67.9 35-14.9 17.2-28 44.2-24.4 70.5 26.1 2 52.3-13.1 68.4-32.4z"/></svg>
-            Log ind med Apple ID
-          </button>
+          {status === 'sent' && (
+            <p className="text-center text-sm text-green-600 font-semibold">
+              Tjek din e-mail for at fortsætte.
+            </p>
+          )}
         </div>
       </div>
       <p className="mt-auto text-[11px] text-[#9CA3AF] font-bold uppercase tracking-[0.25em] pb-8">© 2025 WECIRCLE-ASSISTENT INC.</p>
@@ -537,7 +555,8 @@ const LoginScreen: React.FC<{ onLogin: (email: string) => void }> = ({ onLogin }
 // --- MAIN APP ---
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<{ email: string } | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [view, setView] = useState<'history' | 'capture' | 'review' | 'settings'>('history');
   const [history, setHistory] = useState<CircleItem[]>([]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
@@ -556,15 +575,38 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('wecircle_user');
-    if (savedUser) {
-      try {
-        const parsed = JSON.parse(savedUser);
-        if (WHITELIST.includes(parsed.email)) setUser(parsed);
-      } catch (error) {
-        console.warn("Kunne ikke læse cached brugerdata", error);
-      }
+    if (!supabase) {
+      setAuthLoading(false);
+      return;
     }
+
+    supabase.auth.getSession().then(({ data }) => {
+      const sessionUser = data.session?.user ?? null;
+      setUser(sessionUser);
+      if (sessionUser?.email) {
+        localStorage.setItem('wecircle_user', JSON.stringify({ email: sessionUser.email }));
+      } else {
+        localStorage.removeItem('wecircle_user');
+      }
+      setAuthLoading(false);
+    });
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      const sessionUser = session?.user ?? null;
+      setUser(sessionUser);
+      if (sessionUser?.email) {
+        localStorage.setItem('wecircle_user', JSON.stringify({ email: sessionUser.email }));
+      } else {
+        localStorage.removeItem('wecircle_user');
+      }
+    });
+
+    return () => {
+      subscription?.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
     const loadData = async () => {
       try {
         const storedHistory = await Storage.getHistory();
@@ -680,7 +722,10 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
     setUser(null);
     localStorage.removeItem('wecircle_user');
   };
@@ -716,7 +761,19 @@ const App: React.FC = () => {
     } finally { setIsAnalyzing(false); }
   };
 
-  if (!user) return <LoginScreen onLogin={(e) => { setUser({email: e}); localStorage.setItem('wecircle_user', JSON.stringify({email: e})); }} />;
+  if (!user) {
+    if (authLoading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="flex flex-col items-center gap-3 text-gray-500">
+            <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+            <p className="text-sm font-semibold">Tjekker login...</p>
+          </div>
+        </div>
+      );
+    }
+    return <LoginScreen />;
+  }
 
   const currentProvider = PROVIDERS.find(p => p.id === settings.provider);
 
