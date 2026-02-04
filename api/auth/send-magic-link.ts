@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
-import { supabaseAdmin } from '../../lib/supabaseAdmin';
+import { supabaseAdmin } from '../_lib/supabaseAdmin';
 
 const EMAIL_COOLDOWN_MINUTES = 5;
 const IP_COOLDOWN_MINUTES = 2;
