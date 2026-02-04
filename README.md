@@ -56,7 +56,7 @@ Deployments on Vercel should configure these vars in the project settings so tha
    - RLS policies and triggers that keep `updated_at` automatically in sync.
 4. In the Supabase Dashboard → Authentication, enable **Email (Magic Link)** and add production/staging URLs in “Redirect URLs”. Optionally customize the email template for the brand.
 5. Set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_PUBLISHABLE_KEY` in `.env.local` and in Vercel project settings.
-6. Users can now request a magic link on the login screen; the `/api/auth/send-magic-link` route enforces per-email and per-IP throttling backed by the `auth_throttle` table before calling Supabase Auth.
+6. Users can now request a magic link on the login screen; the `/api/auth/send-magic-link` route enforces per-email and per-IP throttling backed by the `auth_throttle` table before calling Supabase Auth. If you get redirected back to the login screen, double-check that `APP_BASE_URL` and the Supabase **Site URL** are set to the same production domain so the session can be exchanged correctly.
 
 ## Quality gates (linting & tests)
 
