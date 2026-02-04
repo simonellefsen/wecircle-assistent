@@ -29,6 +29,23 @@ const resolveRedirectUrl = () => {
   }
 };
 
+const sanitizeRedirect = (raw?: string) => {
+  const fallback = resolveRedirectUrl();
+  if (!raw) return fallback;
+  try {
+    const fallbackUrl = new URL(fallback);
+    const normalized = raw.startsWith('http://') || raw.startsWith('https://')
+      ? new URL(raw)
+      : new URL(raw, fallbackUrl.origin);
+    if (normalized.origin !== fallbackUrl.origin) {
+      return fallback;
+    }
+    return normalized.toString();
+  } catch {
+    return fallback;
+  }
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -77,7 +94,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       requested_at: nowIso(),
     });
 
-    const redirectUrl = resolveRedirectUrl();
+    const redirectUrl = sanitizeRedirect(typeof req.body?.redirectTo === 'string' ? req.body.redirectTo : undefined);
     const { error } = await supabaseAdmin.auth.signInWithOtp({
       email,
       options: {

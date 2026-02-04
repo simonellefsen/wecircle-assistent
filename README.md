@@ -58,6 +58,12 @@ Deployments on Vercel should configure these vars in the project settings so tha
 5. Set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_PUBLISHABLE_KEY` in `.env.local` and in Vercel project settings.
 6. Users can now request a magic link on the login screen; the `/api/auth/send-magic-link` route enforces per-email and per-IP throttling backed by the `auth_throttle` table before calling Supabase Auth. If you get redirected back to the login screen, double-check that `APP_BASE_URL` and the Supabase **Site URL** are set to the same production domain so the session can be exchanged correctly.
 
+### OAuth consent surface
+
+- When Supabase’s OAuth Server beta is enabled, the SPA automatically detects requests to `/oauth/consent?authorization_id=…` and renders a consent UI powered by `supabase.auth.oauth.*`. Users must be signed in; the login screen now passes the current URL to the magic-link endpoint so the redirect lands back on the consent page after signing in.
+- The consent UI calls `getAuthorizationDetails`, shows client metadata + scopes, and lets the user allow/deny. Responses trigger the redirect returned by Supabase so the requesting OAuth client continues its flow.
+- If you need to customise the look-and-feel, edit `OAuthConsentScreen` inside `App.tsx`. Any deep links to `/oauth/consent` must include the auth server’s `authorization_id`.
+
 ## Quality gates (linting & tests)
 
 Before pushing or deploying, run the checks that Vercel also executes during `npm run vercel-build`:

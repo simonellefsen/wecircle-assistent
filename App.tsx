@@ -52,6 +52,22 @@ const INITIAL_USAGE_TOTALS: UsageTotals = {
   costUsd: 0
 };
 
+type OAuthAuthorizationDetailsShape = {
+  authorization_id: string;
+  redirect_url?: string;
+  client: {
+    id: string;
+    name: string;
+    uri?: string;
+    logo_uri?: string;
+  };
+  user: {
+    id: string;
+    email: string;
+  };
+  scope: string;
+};
+
 // Helper to rotate base64 image
 const rotateImageBase64 = (base64Str: string): Promise<string> => {
   return new Promise((resolve) => {
@@ -478,7 +494,7 @@ const VoiceInputButton: React.FC<{ onResult: (text: string) => void; className?:
   );
 };
 
-const LoginScreen: React.FC<{ initialError?: string | null }> = ({ initialError = null }) => {
+const LoginScreen: React.FC<{ initialError?: string | null; redirectTo?: string }> = ({ initialError = null, redirectTo }) => {
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(initialError);
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
@@ -495,7 +511,7 @@ const LoginScreen: React.FC<{ initialError?: string | null }> = ({ initialError 
       const response = await fetch('/api/auth/send-magic-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, redirectTo }),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -556,6 +572,150 @@ const LoginScreen: React.FC<{ initialError?: string | null }> = ({ initialError 
   );
 };
 
+const OAuthConsentScreen: React.FC<{ authorizationId: string }> = ({ authorizationId }) => {
+  const [details, setDetails] = useState<OAuthAuthorizationDetailsShape | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState<'approve' | 'deny' | null>(null);
+
+  const refreshDetails = useCallback(async () => {
+    if (!supabase) {
+      setError('Supabase mangler konfiguration.');
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    const { data, error } = await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
+    if (error) {
+      setError(error.message || 'Kunne ikke hente autorisationsdata.');
+      setLoading(false);
+      return;
+    }
+    if (data?.redirect_url) {
+      window.location.href = data.redirect_url;
+      return;
+    }
+    setDetails(data ?? null);
+    setLoading(false);
+  }, [authorizationId]);
+
+  useEffect(() => {
+    refreshDetails();
+  }, [refreshDetails]);
+
+  const handleDecision = async (decision: 'approve' | 'deny') => {
+    if (!supabase || !details) return;
+    setSubmitting(decision);
+    setError(null);
+    const action =
+      decision === 'approve'
+        ? supabase.auth.oauth.approveAuthorization
+        : supabase.auth.oauth.denyAuthorization;
+    const { data, error } = await action(authorizationId, { skipBrowserRedirect: true });
+    if (error) {
+      setError(error.message || 'Kunne ikke opdatere tilladelsen.');
+      setSubmitting(null);
+      return;
+    }
+    const redirectUrl = data?.redirect_url;
+    if (redirectUrl) {
+      window.location.href = redirectUrl;
+    } else {
+      setError('Redirect URL mangler i svaret. Prøv igen.');
+      setSubmitting(null);
+    }
+  };
+
+  const scopes = details?.scope?.split(' ').filter(Boolean) ?? [];
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center px-6 py-12 text-[#111827]">
+      <div className="w-full max-w-md space-y-6">
+        <div className="text-center space-y-3">
+          <h1 className="text-2xl font-bold tracking-tight">Del din konto</h1>
+          <p className="text-sm text-gray-500">Godkend eller afvis den app, der anmoder om adgang.</p>
+        </div>
+
+        <div className="bg-white rounded-[28px] ios-shadow p-6 space-y-4">
+          {loading && (
+            <div className="flex flex-col items-center gap-3 py-10 text-gray-500">
+              <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+              <p className="text-sm font-semibold">Henter anmodning...</p>
+            </div>
+          )}
+
+          {!loading && details && (
+            <>
+              <div className="flex items-center gap-4">
+                {details.client.logo_uri ? (
+                  <img src={details.client.logo_uri} alt="App logo" className="w-12 h-12 rounded-2xl object-cover bg-gray-100" />
+                ) : (
+                  <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg">
+                    {details.client.name.slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm text-gray-500 uppercase font-semibold tracking-widest">Anmoder</p>
+                  <h2 className="text-xl font-semibold">{details.client.name}</h2>
+                  {details.client.uri && (
+                    <a href={details.client.uri} target="_blank" rel="noreferrer" className="text-sm text-blue-600 underline">
+                      {details.client.uri}
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-2xl p-4">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Dit login</p>
+                <p className="text-base font-semibold break-words">{details.user.email}</p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Adgang der anmodes om</p>
+                {scopes.length > 0 ? (
+                  <ul className="space-y-1 text-sm text-gray-700 list-disc list-inside">
+                    {scopes.map((scope) => (
+                      <li key={scope}>{scope}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-gray-600">Ingen ekstra scopes — kun grundlæggende profiloplysninger.</p>
+                )}
+              </div>
+
+              {error && (
+                <div className="text-red-600 text-sm font-semibold bg-red-50 rounded-2xl p-3">{error}</div>
+              )}
+
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => handleDecision('approve')}
+                  disabled={submitting === 'approve'}
+                  className="w-full bg-blue-600 text-white py-4 rounded-[20px] font-semibold text-lg active:scale-95 transition disabled:opacity-60"
+                >
+                  {submitting === 'approve' ? 'Godkender...' : 'Tillad adgang'}
+                </button>
+                <button
+                  onClick={() => handleDecision('deny')}
+                  disabled={submitting === 'deny'}
+                  className="w-full bg-gray-100 text-gray-700 py-4 rounded-[20px] font-semibold text-lg active:scale-95 transition disabled:opacity-60"
+                >
+                  {submitting === 'deny' ? 'Afviser...' : 'Afvis'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        <p className="text-center text-xs text-gray-400 font-semibold uppercase tracking-[0.35em]">
+          © {new Date().getFullYear()} WeCircle-Assistent
+        </p>
+      </div>
+    </div>
+  );
+};
+
 // --- MAIN APP ---
 
 const App: React.FC = () => {
@@ -578,6 +738,11 @@ const App: React.FC = () => {
   const [usageTotals, setUsageTotals] = useState<UsageTotals>(INITIAL_USAGE_TOTALS);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isBrowser = typeof window !== 'undefined';
+  const isOAuthConsentRoute = isBrowser && window.location.pathname.startsWith('/oauth/consent');
+  const oauthAuthorizationId = isOAuthConsentRoute
+    ? new URLSearchParams(window.location.search).get('authorization_id')
+    : null;
 
   useEffect(() => {
     if (!supabase) {
@@ -801,6 +966,49 @@ const App: React.FC = () => {
       setAnalysisError(error.message || "Der opstod en fejl under analysen.");
     } finally { setIsAnalyzing(false); }
   };
+
+  if (isOAuthConsentRoute) {
+    if (!oauthAuthorizationId) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-center px-8">
+          <h1 className="text-2xl font-bold mb-3">Manglende data</h1>
+          <p className="text-gray-600 mb-6">Linket er ugyldigt, fordi authorization_id mangler.</p>
+          <button
+            onClick={() => (window.location.href = '/')}
+            className="px-8 py-3 rounded-full bg-blue-600 text-white font-semibold"
+          >
+            Gå til forsiden
+          </button>
+        </div>
+      );
+    }
+
+    if (!supabase) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-center px-8">
+          <h1 className="text-2xl font-bold mb-3">Supabase ikke konfigureret</h1>
+          <p className="text-gray-600">Kontroller dine VITE_SUPABASE_* miljøvariabler.</p>
+        </div>
+      );
+    }
+
+    if (authLoading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="flex flex-col items-center gap-3 text-gray-500">
+            <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+            <p className="text-sm font-semibold">Tjekker login...</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (!user) {
+      return <LoginScreen initialError={authError} redirectTo={isBrowser ? window.location.href : undefined} />;
+    }
+
+    return <OAuthConsentScreen authorizationId={oauthAuthorizationId} />;
+  }
 
   if (!user) {
     if (authLoading) {
