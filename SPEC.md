@@ -16,7 +16,7 @@ WeCircle-Assistent is a mobile-first PWA that helps second-hand sellers identify
 2. **AI Capture & Review**
    - Photos go through free-form cropping + compression.
    - Voice notes captured via Web Speech API.
-   - `analyzeItem` hits `/api/analyze`, which selects provider/model (with OpenRouter defaults and filters out unsupported models). Responses populate pricing, “Efter WeCircle” net price (discount + commission), and metadata boxes with voice-edit icons.
+   - `analyzeItem` hits `/api/analyze`, which selects provider/model (with OpenRouter defaults and filters out unsupported models). Responses populate pricing, “Efter WeCircle” net price (discount + commission), and metadata boxes with voice-edit icons. Both the review form and history list expose “Kopiér” actions so descriptive titles can be pasted directly into the native WeCircle app.
    - Usage (runs/tokens/cost) accumulates per session for future metering.
 
 3. **Settings**
