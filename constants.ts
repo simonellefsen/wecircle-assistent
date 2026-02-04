@@ -61,6 +61,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   model: 'gemini-3-flash-preview',
   language: 'Dansk',
   currency: 'DKK',
+  discountPercent: 0,
+  commissionPercent: 0.2,
   customPrompt: `Identificer varen på billederne.
 Foreslå en rimelig genbrugspris i {currency} i feltet 'price'.
 Find eller estimer varens oprindelige nypris i {currency} i feltet 'priceNew'.
@@ -72,3 +74,4 @@ Returner resultatet som JSON med nøglerne: 'description', 'price', 'priceNew', 
 
 export const LANGUAGES = ['Dansk', 'English', 'Svenska', 'Norsk', 'Deutsch'];
 export const CURRENCIES = ['DKK', 'EUR', 'USD', 'GBP', 'SEK', 'NOK'];
+export const DISCOUNT_OPTIONS = [0, 0.25, 0.5];

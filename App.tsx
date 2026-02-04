@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { analyzeItem, ANALYZE_API_URL } from './services/aiService';
 import * as Storage from './services/storageService';
 import type { AppSettings, CircleItem } from './types';
-import { DEFAULT_SETTINGS, LANGUAGES, CURRENCIES, PROVIDERS, MODELS_BY_PROVIDER } from './constants';
+import { DEFAULT_SETTINGS, LANGUAGES, CURRENCIES, PROVIDERS, MODELS_BY_PROVIDER, DISCOUNT_OPTIONS } from './constants';
 
 const WHITELIST = [
   'stoffer@nose.dk',
@@ -11,6 +11,26 @@ const WHITELIST = [
   'stilettorebel@hotmail.com',
   'simon.ellefsen@gmail.com'
 ];
+
+const formatCurrency = (amount: number, currency: string) => {
+  if (!Number.isFinite(amount)) return '—';
+  try {
+    return new Intl.NumberFormat('da-DK', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2
+    }).format(amount);
+  } catch {
+    return `${amount.toFixed(2)} ${currency}`;
+  }
+};
+
+const calculateNetPrice = (price: number, discountPercent: number, commissionPercent: number) => {
+  if (!Number.isFinite(price)) return 0;
+  const afterDiscount = price * (1 - discountPercent);
+  const afterCommission = afterDiscount * (1 - commissionPercent);
+  return Math.max(0, Math.round(afterCommission * 100) / 100);
+};
 
 // Helper to rotate base64 image
 const rotateImageBase64 = (base64Str: string): Promise<string> => {
@@ -64,8 +84,9 @@ const compressImage = (base64Str: string, maxWidth = 1024, maxHeight = 1024): Pr
 const SwipeableListItem: React.FC<{ 
   item: CircleItem; 
   onDelete: (id: string) => void; 
-  onClick: () => void 
-}> = ({ item, onDelete, onClick }) => {
+  onClick: () => void;
+  netPrice: number;
+}> = ({ item, onDelete, onClick, netPrice }) => {
   const [startX, setStartX] = useState(0);
   const [translateX, setTranslateX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -128,7 +149,8 @@ const SwipeableListItem: React.FC<{
         <img src={item.photos[0]} className="w-20 h-20 rounded-2xl object-cover bg-gray-100" />
         <div className="flex-1 py-1 flex flex-col justify-between">
           <div>
-            <p className="text-sm font-bold text-blue-600 mb-0.5">{item.price} {item.currency}</p>
+            <p className="text-sm font-bold text-blue-600 mb-0.5">{formatCurrency(item.price, item.currency || 'DKK')}</p>
+            <p className="text-[11px] font-semibold text-green-600 mb-1">Efter WeCircle: {formatCurrency(netPrice, item.currency || 'DKK')}</p>
             <p className="text-base font-semibold text-[#111827] line-clamp-2 leading-tight">{item.description}</p>
           </div>
         </div>
@@ -498,18 +520,23 @@ const App: React.FC = () => {
                 <svg className="w-20 h-20 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
                 <p className="font-bold uppercase tracking-widest text-[10px]">Ingen varer endnu</p>
               </div>
-            ) : (
-              history.map(item => (
-                <SwipeableListItem 
-                  key={item.id} 
-                  item={item} 
-                  onDelete={handleDeleteHistoryItem} 
-                  onClick={() => { setReviewItem(item); setView('review'); setShowSimilarLinks(false); }} 
-                />
-              ))
-            )}
-          </div>
-        )}
+              ) : (
+                history.map(item => {
+                  const basePrice = typeof item.price === 'number' ? item.price : 0;
+                  const netPrice = calculateNetPrice(basePrice, settings.discountPercent, settings.commissionPercent);
+                  return (
+                    <SwipeableListItem 
+                      key={item.id} 
+                      item={item} 
+                      netPrice={netPrice}
+                      onDelete={handleDeleteHistoryItem} 
+                      onClick={() => { setReviewItem(item); setView('review'); setShowSimilarLinks(false); }} 
+                    />
+                  );
+                })
+              )}
+            </div>
+          )}
 
         {view === 'capture' && (
           <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-300">
@@ -596,6 +623,11 @@ const App: React.FC = () => {
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-[#9CA3AF] uppercase px-1">Vurderet Pris ({settings.currency})</label>
                   <input type="number" value={reviewItem.price || ''} onChange={(e) => setReviewItem({ ...reviewItem, price: parseFloat(e.target.value) || 0 })} className="w-full bg-[#F9FAFB] border-none rounded-[20px] p-4 text-lg font-bold text-blue-600" />
+                  {Number.isFinite(reviewItem.price) && (
+                    <p className="text-[11px] font-bold text-green-600 px-1">
+                      Efter WeCircle: {formatCurrency(calculateNetPrice(reviewItem.price || 0, settings.discountPercent, settings.commissionPercent), settings.currency)}
+                    </p>
+                  )}
                 </div>
               </div>
             </section>
@@ -748,6 +780,35 @@ const App: React.FC = () => {
                     )}
                   </div>
                 </div>
+              </div>
+            </section>
+
+            {/* WeCircle configuration */}
+            <section className="bg-white rounded-[28px] overflow-hidden ios-shadow border border-white">
+              <div className="p-5 border-b border-gray-50 flex justify-between items-center">
+                <h3 className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-widest px-1">WeCircle</h3>
+                <span className="bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                  Provision {Math.round(settings.commissionPercent * 100)}%
+                </span>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold">Rabat</span>
+                  <select
+                    value={settings.discountPercent}
+                    onChange={(e) => setSettings(prev => ({ ...prev, discountPercent: parseFloat(e.target.value) }))}
+                    className="bg-transparent text-sm font-bold text-blue-600 outline-none"
+                  >
+                    {DISCOUNT_OPTIONS.map(option => (
+                      <option key={option} value={option}>
+                        {Math.round(option * 100)}%
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-[11px] text-[#6B7280] font-semibold">
+                  Din pris til kunden reduceres med valgt rabat, og vi trækker altid {Math.round(settings.commissionPercent * 100)}% provision bagefter.
+                </p>
               </div>
             </section>
 

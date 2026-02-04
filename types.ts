@@ -5,6 +5,8 @@ export interface AppSettings {
   language: string;
   currency: string;
   customPrompt: string;
+  discountPercent: number;
+  commissionPercent: number;
 }
 
 export interface CircleItem {
