@@ -103,7 +103,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
     if (error) {
       console.error('Magic link error', error);
-      return res.status(500).json({ error: 'Kunne ikke sende login-link. Prøv igen.' });
+      const rateLimited = error.code === 'over_email_send_rate_limit' || error.status === 429;
+      return res
+        .status(rateLimited ? 429 : 500)
+        .json({
+          error: rateLimited
+            ? 'Du har lige fået sendt for mange login-links. Vent fem minutter og prøv igen, så undgår vi at blokere e-mailen.'
+            : 'Kunne ikke sende login-link. Prøv igen.'
+        });
     }
 
     return res.status(200).json({ ok: true });
