@@ -105,6 +105,7 @@ const SwipeableListItem: React.FC<{
   const [isSwiping, setIsSwiping] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [copied, setCopied] = useState(false);
   const threshold = -80;
 
   useEffect(() => {
@@ -142,6 +143,18 @@ const SwipeableListItem: React.FC<{
     setTimeout(() => onDelete(item.id), 300);
   };
 
+  const handleCopyDescription = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!item.description || typeof navigator === 'undefined' || !navigator.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(item.description);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.warn('Kunne ikke kopiere titel', error);
+    }
+  };
+
   return (
     <div className={`relative overflow-hidden transition-all duration-300 ${isDeleting ? 'opacity-0 h-0 mb-0' : 'mb-4'}`}>
       <div 
@@ -165,6 +178,16 @@ const SwipeableListItem: React.FC<{
             <p className="text-sm font-bold text-blue-600 mb-0.5">{formatCurrency(item.price, item.currency || 'DKK')}</p>
             <p className="text-[11px] font-semibold text-green-600 mb-1">Efter WeCircle: {formatCurrency(netPrice, item.currency || 'DKK')}</p>
             <p className="text-base font-semibold text-[#111827] line-clamp-2 leading-tight">{item.description}</p>
+            <div className="mt-2 flex items-center gap-2">
+              <button
+                onClick={handleCopyDescription}
+                disabled={!item.description}
+                className="text-[10px] font-black uppercase tracking-tighter text-blue-600 hover:underline disabled:opacity-40"
+              >
+                Kopiér
+              </button>
+              {copied && <span className="text-[10px] font-black text-green-600 uppercase tracking-tighter">Kopieret!</span>}
+            </div>
           </div>
         </div>
 
