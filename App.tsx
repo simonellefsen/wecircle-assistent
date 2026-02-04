@@ -570,6 +570,7 @@ const App: React.FC = () => {
   const [isCheckingProviders, setIsCheckingProviders] = useState(false);
   const [usageTotals, setUsageTotals] = useState<UsageTotals>(INITIAL_USAGE_TOTALS);
   const [remoteSettingsReady, setRemoteSettingsReady] = useState(false);
+  const [titleCopied, setTitleCopied] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const userId = user?.id ?? null;
@@ -846,6 +847,17 @@ const App: React.FC = () => {
     } finally { setIsAnalyzing(false); }
   };
 
+  const handleCopyTitle = async () => {
+    if (!reviewItem?.description || typeof navigator === 'undefined' || !navigator.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(reviewItem.description);
+      setTitleCopied(true);
+      window.setTimeout(() => setTitleCopied(false), 2000);
+    } catch (error) {
+      console.warn('Kunne ikke kopiere titel', error);
+    }
+  };
+
   if (!user) {
     if (authLoading) {
       return (
@@ -966,10 +978,26 @@ const App: React.FC = () => {
               {reviewItem.photos?.map((photo, idx) => <img key={idx} src={photo} className="w-28 h-28 object-cover rounded-2xl border bg-white shadow-sm" />)}
             </div>
 
-            <section className="bg-white rounded-[28px] p-6 ios-shadow space-y-6 border border-white">
+              <section className="bg-white rounded-[28px] p-6 ios-shadow space-y-6 border border-white">
               <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest px-1">Titel</label>
+                <div className="flex justify-between items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest px-1">Titel</label>
+                    <button
+                      onClick={handleCopyTitle}
+                      disabled={!reviewItem.description}
+                      className="flex items-center gap-1 text-[9px] font-black uppercase tracking-tighter text-blue-600 disabled:opacity-40"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h8a2 2 0 012 2v9a2 2 0 01-2 2H8a2 2 0 01-2-2V9a2 2 0 012-2z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7V5a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2h1" />
+                      </svg>
+                      Kopiér
+                    </button>
+                    {titleCopied && (
+                      <span className="text-[9px] font-black text-green-600 uppercase tracking-tighter">Kopieret!</span>
+                    )}
+                  </div>
                   <VoiceInputButton onResult={(t) => setReviewItem({ ...reviewItem, description: t })} />
                 </div>
                 <textarea
