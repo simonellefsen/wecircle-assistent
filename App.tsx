@@ -194,39 +194,9 @@ const SwipeableListItem: React.FC<{
   );
 };
 
-const VoiceInput: React.FC<{ onResult: (text: string) => void; className?: string }> = ({ onResult, className }) => {
-  const [isListening, setIsListening] = useState(false);
-  
-  const startListening = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Stemmegenkendelse understøttes ikke i denne browser.");
-      return;
-    }
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'da-DK';
-    recognition.interimResults = false;
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => setIsListening(false);
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      onResult(transcript);
-    };
-    recognition.start();
-  };
-
-  return (
-    <button 
-      onClick={startListening}
-      className={`p-2 rounded-full transition-all active:scale-90 ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-blue-50 text-blue-600'} ${className}`}
-    >
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-      </svg>
-    </button>
-  );
-};
+const VoiceInput: React.FC<{ onResult: (text: string) => void; className?: string }> = ({ onResult, className }) => (
+  <VoiceInputButton onResult={onResult} className={className} />
+);
 
 const CropModal: React.FC<{ src: string; onCrop: (cropped: string) => void; onCancel: () => void }> = ({ src, onCrop, onCancel }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -334,6 +304,41 @@ const CropModal: React.FC<{ src: string; onCrop: (cropped: string) => void; onCa
   );
 };
 
+const VoiceInputButton: React.FC<{ onResult: (text: string) => void; className?: string }> = ({ onResult, className }) => {
+  const [isListening, setIsListening] = useState(false);
+
+  const startListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Stemmegenkendelse understøttes ikke i denne browser.");
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'da-DK';
+    recognition.interimResults = false;
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      onResult(transcript);
+    };
+    recognition.start();
+  };
+
+  return (
+    <button 
+      onClick={startListening}
+      className={`p-2 rounded-full transition-all active:scale-90 ${isListening ? 'bg-blue-600 text-white animate-pulse' : 'bg-blue-50 text-blue-600'} ${className}`}
+      title="Dikter tekst"
+    >
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+      </svg>
+    </button>
+  );
+};
+
 const LoginScreen: React.FC<{ onLogin: (email: string) => void }> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -372,7 +377,7 @@ const LoginScreen: React.FC<{ onLogin: (email: string) => void }> = ({ onLogin }
         {error && <div className="text-red-500 text-xs font-bold text-center">{error}</div>}
         <div className="space-y-4">
           <button onClick={handleLogin} className="w-full bg-[#D1D1D1] text-[#717171] py-5 rounded-[22px] font-bold text-lg flex items-center justify-center gap-3 active:scale-95 transition-all shadow-sm">
-            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" /></svg>
+            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
             Log ind med Google
           </button>
           <button onClick={handleLogin} className="w-full bg-[#838383] text-white py-5 rounded-[22px] font-bold text-lg flex items-center justify-center gap-3 active:scale-95 transition-all shadow-sm">
@@ -680,9 +685,14 @@ const App: React.FC = () => {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest px-1">Titel</label>
-                  <VoiceInput onResult={(t) => setReviewItem({ ...reviewItem, description: t })} />
+                  <VoiceInputButton onResult={(t) => setReviewItem({ ...reviewItem, description: t })} />
                 </div>
-                <input type="text" value={reviewItem.description} onChange={(e) => setReviewItem({ ...reviewItem, description: e.target.value })} className="w-full bg-[#F9FAFB] border-none rounded-[20px] p-4 text-base font-bold" />
+                <textarea
+                  value={reviewItem.description}
+                  onChange={(e) => setReviewItem({ ...reviewItem, description: e.target.value })}
+                  className="w-full bg-[#F9FAFB] border-none rounded-[20px] p-4 text-base font-bold resize-none leading-snug"
+                  rows={2}
+                />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
@@ -707,8 +717,22 @@ const App: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 {['brand', 'type', 'color', 'size', 'condition', 'material', 'style'].map(field => (
                   <div key={field} className="bg-[#F9FAFB] p-3 rounded-[16px]">
-                    <span className="text-[9px] text-[#9CA3AF] uppercase font-bold block mb-1">{field}</span>
-                    <input className="w-full bg-transparent border-none p-0 text-xs font-bold" value={reviewItem.details?.[field as keyof typeof reviewItem.details] || ''} onChange={(e) => setReviewItem({ ...reviewItem, details: { ...reviewItem.details, [field]: e.target.value } })} />
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[9px] text-[#9CA3AF] uppercase font-bold">{field}</span>
+                      <VoiceInputButton
+                        onResult={(text) => setReviewItem(prev => ({
+                          ...prev,
+                          details: { ...prev?.details, [field]: text }
+                        }))}
+                        className="p-1 bg-transparent text-[#9CA3AF] hover:text-blue-600"
+                      />
+                    </div>
+                    <textarea
+                      className="w-full bg-transparent border-none text-sm font-semibold leading-snug resize-none"
+                      rows={2}
+                      value={reviewItem.details?.[field as keyof typeof reviewItem.details] || ''}
+                      onChange={(e) => setReviewItem({ ...reviewItem, details: { ...reviewItem.details, [field]: e.target.value } })}
+                    />
                   </div>
                 ))}
               </div>
