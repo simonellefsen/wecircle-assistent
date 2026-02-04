@@ -173,12 +173,15 @@ const SwipeableListItem: React.FC<{
         onClick={() => translateX === 0 && onClick()}
       >
         <img src={item.photos[0]} className="w-20 h-20 rounded-2xl object-cover bg-gray-100" />
-        <div className="flex-1 py-1 flex flex-col justify-between">
+        <div className="flex-1 py-1 flex flex-col justify-between pr-12">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-sm font-bold text-blue-600 mb-0.5">{formatCurrency(item.price, item.currency || 'DKK')}</p>
               <p className="text-[11px] font-semibold text-green-600 mb-1">Efter WeCircle: {formatCurrency(netPrice, item.currency || 'DKK')}</p>
             </div>
+          </div>
+          <div className="flex items-start gap-3 mt-1">
+            <p className="flex-1 text-base font-semibold text-[#111827] leading-tight line-clamp-2">{item.description}</p>
             <button
               onClick={handleCopyDescription}
               disabled={!item.description}
@@ -197,7 +200,6 @@ const SwipeableListItem: React.FC<{
               )}
             </button>
           </div>
-          <p className="text-base font-semibold text-[#111827] line-clamp-2 leading-tight mt-1">{item.description}</p>
         </div>
 
         {!isTouchDevice && (
