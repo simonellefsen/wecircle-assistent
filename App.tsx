@@ -478,10 +478,14 @@ const VoiceInputButton: React.FC<{ onResult: (text: string) => void; className?:
   );
 };
 
-const LoginScreen: React.FC = () => {
+const LoginScreen: React.FC<{ initialError?: string | null }> = ({ initialError = null }) => {
   const [email, setEmail] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
+
+  useEffect(() => {
+    setError(initialError);
+  }, [initialError]);
 
   const handleSendLink = async () => {
     if (!email) return;
@@ -557,6 +561,7 @@ const LoginScreen: React.FC = () => {
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [view, setView] = useState<'history' | 'capture' | 'review' | 'settings'>('history');
   const [history, setHistory] = useState<CircleItem[]>([]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
@@ -579,6 +584,25 @@ const App: React.FC = () => {
       setAuthLoading(false);
       return;
     }
+
+    const params = new URLSearchParams(window.location.search);
+    const authCode = params.get('code');
+    const exchangeAuthCode = async () => {
+      if (!authCode) return;
+      const { error } = await supabase.auth.exchangeCodeForSession({ authCode });
+      if (error) {
+        console.error('Kunne ikke bekræfte login-link', error);
+        setAuthError('Kunne ikke bekræfte login-link. Prøv igen.');
+        return;
+      }
+      params.delete('code');
+      params.delete('type');
+      params.delete('redirect_to');
+      const newQuery = params.toString();
+      const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}${window.location.hash}`;
+      window.history.replaceState({}, document.title, newUrl);
+    };
+    exchangeAuthCode();
 
     supabase.auth.getSession().then(({ data }) => {
       const sessionUser = data.session?.user ?? null;
@@ -772,7 +796,7 @@ const App: React.FC = () => {
         </div>
       );
     }
-    return <LoginScreen />;
+    return <LoginScreen initialError={authError} />;
   }
 
   const currentProvider = PROVIDERS.find(p => p.id === settings.provider);
