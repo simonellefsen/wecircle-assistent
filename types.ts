@@ -9,6 +9,14 @@ export interface AppSettings {
   commissionPercent: number;
 }
 
+export interface UsageTotals {
+  runs: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  costUsd: number;
+}
+
 export interface CircleItem {
   id: string;
   timestamp: number;

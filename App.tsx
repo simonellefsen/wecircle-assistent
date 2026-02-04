@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { analyzeItem, ANALYZE_API_URL } from './services/aiService';
 import * as Storage from './services/storageService';
-import type { AppSettings, CircleItem } from './types';
+import { fetchUserSettings, persistUserSettings, persistUsageTotals } from './services/userSettingsService';
+import type { AppSettings, CircleItem, UsageTotals } from './types';
 import { DEFAULT_SETTINGS, LANGUAGES, CURRENCIES, PROVIDERS, MODELS_BY_PROVIDER, DISCOUNT_OPTIONS } from './constants';
 import { supabase } from './supabaseClient';
 
@@ -35,14 +36,6 @@ const formatUsd = (amount: number) => {
 };
 
 type ProviderStatus = 'connected' | 'missing';
-
-type UsageTotals = {
-  runs: number;
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-  costUsd: number;
-};
 
 const INITIAL_USAGE_TOTALS: UsageTotals = {
   runs: 0,
@@ -736,6 +729,7 @@ const App: React.FC = () => {
   const [providerStatus, setProviderStatus] = useState<Record<string, ProviderStatus>>({});
   const [isCheckingProviders, setIsCheckingProviders] = useState(false);
   const [usageTotals, setUsageTotals] = useState<UsageTotals>(INITIAL_USAGE_TOTALS);
+  const [remoteSettingsReady, setRemoteSettingsReady] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isBrowser = typeof window !== 'undefined';
@@ -743,6 +737,7 @@ const App: React.FC = () => {
   const oauthAuthorizationId = isOAuthConsentRoute
     ? new URLSearchParams(window.location.search).get('authorization_id')
     : null;
+  const userId = user?.id ?? null;
 
   useEffect(() => {
     if (!supabase) {
@@ -813,6 +808,35 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (!supabase || !userId) {
+      setRemoteSettingsReady(false);
+      return;
+    }
+    let cancelled = false;
+    const hydrateSettings = async () => {
+      try {
+        const remote = await fetchUserSettings(userId);
+        if (!remote || cancelled) return;
+        setSettings(prev => ({ ...prev, ...remote.settings }));
+        if (remote.usage) {
+          setUsageTotals(remote.usage);
+        }
+      } catch (error) {
+        console.warn('Kunne ikke indlæse indstillinger fra Supabase', error);
+      } finally {
+        if (!cancelled) {
+          setRemoteSettingsReady(true);
+        }
+      }
+    };
+    setRemoteSettingsReady(false);
+    hydrateSettings();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  useEffect(() => {
     const loadData = async () => {
       try {
         const storedHistory = await Storage.getHistory();
@@ -823,6 +847,26 @@ const App: React.FC = () => {
     };
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!supabase || !userId || !remoteSettingsReady) return;
+    const timeout = window.setTimeout(() => {
+      persistUserSettings(userId, settings).catch((error) => {
+        console.warn('Kunne ikke gemme indstillinger i Supabase', error);
+      });
+    }, 500);
+    return () => window.clearTimeout(timeout);
+  }, [settings, userId, remoteSettingsReady]);
+
+  useEffect(() => {
+    if (!supabase || !userId || !remoteSettingsReady) return;
+    const timeout = window.setTimeout(() => {
+      persistUsageTotals(userId, usageTotals).catch((error) => {
+        console.warn('Kunne ikke gemme forbrugstal i Supabase', error);
+      });
+    }, 500);
+    return () => window.clearTimeout(timeout);
+  }, [usageTotals, userId, remoteSettingsReady]);
 
   useEffect(() => {
     try {
