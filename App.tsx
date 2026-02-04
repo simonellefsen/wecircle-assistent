@@ -589,7 +589,7 @@ const App: React.FC = () => {
     const authCode = params.get('code');
     const exchangeAuthCode = async () => {
       if (!authCode) return;
-      const { error } = await supabase.auth.exchangeCodeForSession({ authCode });
+      const { error } = await supabase.auth.exchangeCodeForSession(authCode);
       if (error) {
         console.error('Kunne ikke bekræfte login-link', error);
         setAuthError('Kunne ikke bekræfte login-link. Prøv igen.');
