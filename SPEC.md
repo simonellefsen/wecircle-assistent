@@ -3,7 +3,7 @@
 ## 1. Vision
 WeCircle-Assistent is a mobile-first PWA that helps second-hand sellers identify, price, and describe items using AI. The app must:
 - Capture photos/voice context, run multi-provider AI analysis (OpenRouter defaulting to NVIDIA Nemotron Nano, Grok/xAI, Gemini, OpenAI), and output pricing guidance plus structured metadata.
-- Support user management via Supabase: magic-link login, optional OAuth consent surface, persistent history/settings, and future paid tiers with usage limits.
+- Support user management via Supabase: magic-link login, persistent history/settings, and future paid tiers with usage limits.
 - Run entirely on Vercel (client + API routes) with linting, testing, and type-check CI gates.
 
 ## 2. Core Flows
@@ -24,10 +24,6 @@ WeCircle-Assistent is a mobile-first PWA that helps second-hand sellers identify
    - OpenRouter model list limited to curated set; Nemotron Nano is default.
    - WeCircle section stores discount (0/25/50%) and fixed 20% commission; UI reflects net price across list + detail pages.
    - Supabase-backed settings table (`user_settings`) tracks provider/model preferences.
-
-4. **OAuth Consent (beta)**
-   - When Supabase acts as OAuth server, hits to `/oauth/consent?authorization_id=` render a dedicated consent card inside the SPA, showing client metadata + requested scopes.
-   - Approve/deny use `supabase.auth.oauth.*` and redirect per Supabase’s response.
 
 ## 3. Data Model (Supabase migrations)
 - `profiles` (1:1 with `auth.users`, holds email, display name, metadata).
