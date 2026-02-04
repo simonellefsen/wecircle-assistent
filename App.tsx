@@ -588,8 +588,16 @@ const App: React.FC = () => {
     const handleAuthRedirect = async () => {
       try {
         if (window.location.hash.includes('access_token=')) {
-          const { error } = await supabase.auth.getSessionFromUrl({ storeSession: true });
-          if (error) throw error;
+          const hashParams = new URLSearchParams(window.location.hash.slice(1));
+          const access_token = hashParams.get('access_token');
+          const refresh_token = hashParams.get('refresh_token');
+          if (access_token && refresh_token) {
+            const { error } = await supabase.auth.setSession({
+              access_token,
+              refresh_token,
+            });
+            if (error) throw error;
+          }
           window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
           return;
         }
