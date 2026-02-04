@@ -585,24 +585,33 @@ const App: React.FC = () => {
       return;
     }
 
-    const params = new URLSearchParams(window.location.search);
-    const authCode = params.get('code');
-    const exchangeAuthCode = async () => {
-      if (!authCode) return;
-      const { error } = await supabase.auth.exchangeCodeForSession(authCode);
-      if (error) {
+    const handleAuthRedirect = async () => {
+      try {
+        if (window.location.hash.includes('access_token=')) {
+          const { error } = await supabase.auth.getSessionFromUrl({ storeSession: true });
+          if (error) throw error;
+          window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+          return;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        const authCode = params.get('code');
+        if (authCode) {
+          const { error } = await supabase.auth.exchangeCodeForSession(authCode);
+          if (error) throw error;
+          params.delete('code');
+          params.delete('type');
+          params.delete('redirect_to');
+          const newQuery = params.toString();
+          const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}`;
+          window.history.replaceState({}, document.title, newUrl);
+        }
+      } catch (error) {
         console.error('Kunne ikke bekræfte login-link', error);
         setAuthError('Kunne ikke bekræfte login-link. Prøv igen.');
-        return;
       }
-      params.delete('code');
-      params.delete('type');
-      params.delete('redirect_to');
-      const newQuery = params.toString();
-      const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}${window.location.hash}`;
-      window.history.replaceState({}, document.title, newUrl);
     };
-    exchangeAuthCode();
+    handleAuthRedirect();
 
     supabase.auth.getSession().then(({ data }) => {
       const sessionUser = data.session?.user ?? null;
