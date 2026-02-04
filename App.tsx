@@ -11,6 +11,7 @@ const WHITELIST = [
   'stilettorebel@hotmail.com',
   'simon.ellefsen@gmail.com'
 ];
+const USAGE_STORAGE_KEY = 'wecircle_usage';
 
 const formatCurrency = (amount: number, currency: string) => {
   if (!Number.isFinite(amount)) return '—';
@@ -30,6 +31,29 @@ const calculateNetPrice = (price: number, discountPercent: number, commissionPer
   const afterDiscount = price * (1 - discountPercent);
   const afterCommission = afterDiscount * (1 - commissionPercent);
   return Math.max(0, Math.round(afterCommission * 100) / 100);
+};
+
+const formatUsd = (amount: number) => {
+  if (!Number.isFinite(amount)) return '—';
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 4 }).format(amount);
+};
+
+type ProviderStatus = 'connected' | 'missing';
+
+type UsageTotals = {
+  runs: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  costUsd: number;
+};
+
+const INITIAL_USAGE_TOTALS: UsageTotals = {
+  runs: 0,
+  promptTokens: 0,
+  completionTokens: 0,
+  totalTokens: 0,
+  costUsd: 0
 };
 
 // Helper to rotate base64 image
@@ -364,8 +388,6 @@ const LoginScreen: React.FC<{ onLogin: (email: string) => void }> = ({ onLogin }
 
 // --- MAIN APP ---
 
-type ProviderStatus = 'connected' | 'missing';
-
 const App: React.FC = () => {
   const [user, setUser] = useState<{ email: string } | null>(null);
   const [view, setView] = useState<'history' | 'capture' | 'review' | 'settings'>('history');
@@ -381,6 +403,7 @@ const App: React.FC = () => {
   const [showSimilarLinks, setShowSimilarLinks] = useState(false);
   const [providerStatus, setProviderStatus] = useState<Record<string, ProviderStatus>>({});
   const [isCheckingProviders, setIsCheckingProviders] = useState(false);
+  const [usageTotals, setUsageTotals] = useState<UsageTotals>(INITIAL_USAGE_TOTALS);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -403,6 +426,24 @@ const App: React.FC = () => {
       } finally { setIsLoadingHistory(false); }
     };
     loadData();
+  }, []);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(USAGE_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setUsageTotals({
+          runs: parsed.runs || 0,
+          promptTokens: parsed.promptTokens || 0,
+          completionTokens: parsed.completionTokens || 0,
+          totalTokens: parsed.totalTokens || 0,
+          costUsd: parsed.costUsd || 0
+        });
+      }
+    } catch (error) {
+      console.warn('Kunne ikke læse forbrugsdata', error);
+    }
   }, []);
 
   useEffect(() => {
@@ -432,6 +473,34 @@ const App: React.FC = () => {
     };
     fetchProviderStatus();
   }, []);
+
+  const recordUsage = (usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number; costUsd?: number; }) => {
+    const totalIncrement = usage?.totalTokens ?? ((usage?.promptTokens ?? 0) + (usage?.completionTokens ?? 0));
+    setUsageTotals(prev => {
+      const next = {
+        runs: prev.runs + 1,
+        promptTokens: prev.promptTokens + (usage?.promptTokens ?? 0),
+        completionTokens: prev.completionTokens + (usage?.completionTokens ?? 0),
+        totalTokens: prev.totalTokens + totalIncrement,
+        costUsd: prev.costUsd + (usage?.costUsd ?? 0)
+      };
+      try {
+        localStorage.setItem(USAGE_STORAGE_KEY, JSON.stringify(next));
+      } catch (error) {
+        console.warn('Kunne ikke gemme forbrugsdata', error);
+      }
+      return next;
+    });
+  };
+
+  const resetUsage = () => {
+    setUsageTotals(INITIAL_USAGE_TOTALS);
+    try {
+      localStorage.removeItem(USAGE_STORAGE_KEY);
+    } catch (error) {
+      console.warn('Kunne ikke nulstille forbrugsdata', error);
+    }
+  };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -473,7 +542,7 @@ const App: React.FC = () => {
     setIsAnalyzing(true);
     setAnalysisError(null);
     try {
-      const result = await analyzeItem(capturedPhotos, settings, voiceContext);
+      const { result, usage } = await analyzeItem(capturedPhotos, settings, voiceContext);
       setReviewItem({
         photos: capturedPhotos,
         description: result.description,
@@ -491,6 +560,7 @@ const App: React.FC = () => {
         },
         similarLinks: result.similarLinks
       });
+      recordUsage(usage);
       setView('review');
       setShowSimilarLinks(false);
     } catch (error: any) {
@@ -809,6 +879,40 @@ const App: React.FC = () => {
                 <p className="text-[11px] text-[#6B7280] font-semibold">
                   Din pris til kunden reduceres med valgt rabat, og vi trækker altid {Math.round(settings.commissionPercent * 100)}% provision bagefter.
                 </p>
+              </div>
+            </section>
+
+            <section className="bg-white rounded-[28px] overflow-hidden ios-shadow border border-white">
+              <div className="p-5 border-b border-gray-50 flex justify-between items-center">
+                <h3 className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-widest px-1">Forbrug</h3>
+                <button onClick={resetUsage} className="text-[10px] font-bold text-blue-600 uppercase tracking-tighter hover:underline">
+                  Nulstil
+                </button>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="grid grid-cols-2 gap-3 text-sm font-semibold">
+                  <div className="bg-[#F9FAFB] rounded-[16px] p-3">
+                    <p className="text-[10px] uppercase text-[#9CA3AF] font-bold">Analyser</p>
+                    <p>{usageTotals.runs}</p>
+                  </div>
+                  <div className="bg-[#F9FAFB] rounded-[16px] p-3">
+                    <p className="text-[10px] uppercase text-[#9CA3AF] font-bold">Samlet tokens</p>
+                    <p>{usageTotals.totalTokens}</p>
+                  </div>
+                  <div className="bg-[#F9FAFB] rounded-[16px] p-3">
+                    <p className="text-[10px] uppercase text-[#9CA3AF] font-bold">Prompt tokens</p>
+                    <p>{usageTotals.promptTokens}</p>
+                  </div>
+                  <div className="bg-[#F9FAFB] rounded-[16px] p-3">
+                    <p className="text-[10px] uppercase text-[#9CA3AF] font-bold">Svar tokens</p>
+                    <p>{usageTotals.completionTokens}</p>
+                  </div>
+                </div>
+                <div className="bg-[#F9FAFB] rounded-[16px] p-3">
+                  <p className="text-[10px] uppercase text-[#9CA3AF] font-bold">Estimeret pris (USD)</p>
+                  <p className="text-sm font-semibold">{formatUsd(usageTotals.costUsd)}</p>
+                  <p className="text-[10px] text-[#9CA3AF] mt-1">Kun vist, hvis udbyderen rapporterer omkostninger.</p>
+                </div>
               </div>
             </section>
 

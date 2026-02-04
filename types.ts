@@ -42,3 +42,15 @@ export interface AIResult {
   style: string;
   similarLinks?: string[];
 }
+
+export interface AIUsage {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  costUsd?: number;
+}
+
+export interface AIAnalyzeResponse {
+  result: AIResult;
+  usage?: AIUsage;
+}

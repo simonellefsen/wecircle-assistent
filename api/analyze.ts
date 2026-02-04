@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { GoogleGenAI, Type } from "@google/genai";
 import OpenAI from "openai";
-import type { AppSettings, AIResult } from "../types";
+import type { AppSettings, AIResult, AIUsage } from "../types";
 
 type AnalyzePayload = {
   images: string[];
@@ -14,7 +14,7 @@ type ProviderHandler = (args: {
   prompt: string;
   settings: AppSettings;
   apiKey: string;
-}) => Promise<AIResult>;
+}) => Promise<{ result: AIResult; usage?: AIUsage }>;
 
 const PROVIDER_ENV_MAP: Record<string, string> = {
   google: "GEMINI_API_KEY",
@@ -114,7 +114,16 @@ const googleHandler: ProviderHandler = async ({ images, prompt, settings, apiKey
     throw new Error("Tomt svar fra Gemini.");
   }
 
-  return JSON.parse(text) as AIResult;
+  const parsed = JSON.parse(text) as AIResult;
+  const usage: AIUsage | undefined = response.usageMetadata
+    ? {
+        promptTokens: response.usageMetadata.promptTokenCount,
+        completionTokens: response.usageMetadata.candidatesTokenCount,
+        totalTokens: response.usageMetadata.totalTokenCount,
+      }
+    : undefined;
+
+  return { result: parsed, usage };
 };
 
 const coerceContentToText = (content: unknown) => {
@@ -137,6 +146,8 @@ const coerceContentToText = (content: unknown) => {
 
 const stripJsonFences = (text: string) =>
   text.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+type CompletionUsage = OpenAI.Chat.Completions.ChatCompletion["usage"];
 
 const createOpenAICompatibleHandler =
   (options?: {
@@ -198,7 +209,24 @@ const createOpenAICompatibleHandler =
       responseText = stripJsonFences(responseText);
     }
 
-    return JSON.parse(responseText) as AIResult;
+    const parsed = JSON.parse(responseText) as AIResult;
+    const usageMeta = completion.usage as
+      | (CompletionUsage & { total_cost?: { usd?: number } })
+      | undefined;
+    const usage: AIUsage | undefined = usageMeta
+      ? {
+          promptTokens: usageMeta.prompt_tokens,
+          completionTokens: usageMeta.completion_tokens,
+          totalTokens: usageMeta.total_tokens,
+          costUsd:
+            (usageMeta as any)?.total_cost?.usd ??
+            (typeof (usageMeta as any)?.total_cost === "number"
+              ? (usageMeta as any)?.total_cost
+              : undefined),
+        }
+      : undefined;
+
+    return { result: parsed, usage };
   };
 
 const openaiHandler = createOpenAICompatibleHandler({ useSchema: true });

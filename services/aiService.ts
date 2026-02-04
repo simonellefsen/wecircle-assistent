@@ -1,5 +1,5 @@
 
-import type { AppSettings, AIResult } from "../types";
+import type { AppSettings, AIAnalyzeResponse } from "../types";
 
 export class AnalysisError extends Error {
   constructor(public message: string, public type: 'api' | 'safety' | 'format' | 'network' | 'parse') {
@@ -34,7 +34,7 @@ export const analyzeItem = async (
   images: string[],
   settings: AppSettings,
   voiceContext?: string
-): Promise<AIResult> => {
+): Promise<AIAnalyzeResponse> => {
   if (!images || images.length === 0) {
     throw new AnalysisError("Ingen billeder fundet til analyse.", 'format');
   }
@@ -58,7 +58,10 @@ export const analyzeItem = async (
     }
 
     const result = await response.json();
-    return result as AIResult;
+    if (!result || typeof result !== 'object' || !('result' in result)) {
+      throw new AnalysisError("API'et returnerede et uventet format.", 'parse');
+    }
+    return result as AIAnalyzeResponse;
   } catch (err: any) {
     if (err instanceof AnalysisError) throw err;
 
