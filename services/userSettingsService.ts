@@ -20,7 +20,7 @@ type RemoteSettingsRow = {
 };
 
 const mapRowToSettings = (row: RemoteSettingsRow): AppSettings => ({
-  provider: row.ai_provider || DEFAULT_SETTINGS.provider,
+  provider: DEFAULT_SETTINGS.provider,
   model: row.model_preference || DEFAULT_SETTINGS.model,
   language: row.language || DEFAULT_SETTINGS.language,
   currency: row.currency || DEFAULT_SETTINGS.currency,
@@ -96,7 +96,7 @@ export const persistUserSettings = async (
   if (!supabase || !userId) return;
   const payload = {
     user_id: userId,
-    ai_provider: settings.provider,
+    ai_provider: DEFAULT_SETTINGS.provider,
     model_preference: settings.model,
     language: settings.language,
     currency: settings.currency,

@@ -1,55 +1,16 @@
 
 import type { AppSettings } from './types';
 
-export const PROVIDERS = [
-  { 
-    id: 'google', 
-    name: 'Google Gemini', 
-    icon: '✨', 
-    apiKeyUrl: 'https://ai.google.dev/gemini-api/docs/api-key' 
-  },
-  { 
-    id: 'openai', 
-    name: 'OpenAI (GPT)', 
-    icon: '🤖', 
-    apiKeyUrl: 'https://platform.openai.com/api-keys' 
-  },
-  { 
-    id: 'anthropic', 
-    name: 'Anthropic (Claude)', 
-    icon: '🧠', 
-    apiKeyUrl: 'https://console.anthropic.com/settings/keys' 
-  },
-  { 
-    id: 'xai', 
-    name: 'xAI (Grok)', 
-    icon: '✖️', 
-    apiKeyUrl: 'https://console.x.ai/' 
-  },
-  {
-    id: 'openrouter',
-    name: 'OpenRouter',
-    icon: '🌐',
-    apiKeyUrl: 'https://openrouter.ai/keys'
-  }
-];
+export const OPENROUTER_PROVIDER = {
+  id: 'openrouter',
+  name: 'OpenRouter',
+  icon: '🌐',
+  apiKeyUrl: 'https://openrouter.ai/keys'
+};
+
+export const PROVIDERS = [OPENROUTER_PROVIDER];
 
 export const MODELS_BY_PROVIDER: Record<string, { id: string, name: string }[]> = {
-  google: [
-    { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash' },
-    { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro' },
-  ],
-  openai: [
-    { id: 'gpt-4o', name: 'GPT-4o' },
-    { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
-  ],
-  anthropic: [
-    { id: 'claude-3-5-sonnet-latest', name: 'Claude 3.5 Sonnet' },
-    { id: 'claude-3-opus-latest', name: 'Claude 3 Opus' },
-  ],
-  xai: [
-    { id: 'grok-2-vision-latest', name: 'Grok-2 Vision' }
-  ],
   openrouter: [
     { id: 'openai/gpt-4.1', name: 'OpenAI GPT-4.1' },
     { id: 'google/gemini-2.5-flash', name: 'Google Gemini 2.5 Flash' },

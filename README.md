@@ -28,18 +28,14 @@ View your app in AI Studio: https://ai.studio/apps/drive/1-dVV58S55qwbi_q5q6Df_n
 | Variable | Used by | Notes |
 | --- | --- | --- |
 | `VITE_ANALYZE_URL` | Client | Optional. Defaults to `/api/analyze` in production. Set when the frontend should talk to a remote API instance. |
-| `GEMINI_API_KEY` | Server | Enables Google Gemini analysis. Required for the default provider. |
-| `OPENAI_API_KEY` | Server | Enables GPT‑4o / GPT‑4o Mini. |
-| `XAI_API_KEY` | Server | Enables Grok-2 Vision through xAI’s API. |
-| `OPENROUTER_API_KEY` | Server | Enables any model hosted via OpenRouter (e.g., Claude 3.5 Sonnet). |
-| `ANTHROPIC_API_KEY` | Server | Reserved for native Anthropic integration once implemented. |
+| `OPENROUTER_API_KEY` | Server | Required. We proxy every request through OpenRouter and expose only its curated model list in the UI. |
 | `VITE_SUPABASE_URL` / `SUPABASE_URL` | Client/Server | Supabase project URL for the browser and serverless envs. |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Client | Publishable key for Supabase Auth (magic links). |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server | Service key used in API routes to send magic links and log throttling events. Keep server-side only. |
 | `APP_BASE_URL` | Server | Redirect target for Supabase magic links. Must include the scheme, e.g., `https://wecircle-assistent.vercel.app`. |
 | `RATE_LIMIT_SALT` | Server | Secret salt used when hashing IPs for throttling login requests. |
 
-Deployments on Vercel should configure these vars in the project settings so that `/api/analyze` can select the right provider and key at runtime.
+Deployments on Vercel should configure these vars in the project settings so that `/api/analyze` can authenticate to OpenRouter at runtime.
 
 ### Supabase setup & magic links
 

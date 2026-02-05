@@ -5,7 +5,7 @@ import { analyzeItem, ANALYZE_API_URL } from './services/aiService';
 import * as Storage from './services/storageService';
 import { fetchUserSettings, persistUserSettings, persistUsageTotals } from './services/userSettingsService';
 import type { AppSettings, CircleItem, UsageTotals } from './types';
-import { DEFAULT_SETTINGS, LANGUAGES, CURRENCIES, PROVIDERS, MODELS_BY_PROVIDER, DISCOUNT_OPTIONS } from './constants';
+import { DEFAULT_SETTINGS, LANGUAGES, CURRENCIES, MODELS_BY_PROVIDER, DISCOUNT_OPTIONS, OPENROUTER_PROVIDER } from './constants';
 import { supabase } from './supabaseClient';
 
 const USAGE_STORAGE_KEY = 'wecircle_usage';
@@ -608,6 +608,7 @@ const App: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const userId = user?.id ?? null;
+  const primaryProvider = OPENROUTER_PROVIDER;
 
   useEffect(() => {
     if (!supabase) {
@@ -687,7 +688,7 @@ const App: React.FC = () => {
       try {
         const remote = await fetchUserSettings(userId);
         if (!remote || cancelled) return;
-        setSettings(prev => ({ ...prev, ...remote.settings }));
+        setSettings(prev => ({ ...prev, ...remote.settings, provider: primaryProvider.id }));
         if (remote.usage) {
           setUsageTotals(remote.usage);
         }
@@ -704,7 +705,7 @@ const App: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, primaryProvider.id]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -905,9 +906,6 @@ const App: React.FC = () => {
     }
     return <LoginScreen initialError={authError} />;
   }
-
-  const currentProvider = PROVIDERS.find(p => p.id === settings.provider);
-
   return (
     <div className="max-w-md mx-auto min-h-screen flex flex-col bg-gray-50 font-inter text-[#111827]">
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b px-6 py-4 pt-[env(safe-area-inset-top)] flex justify-between items-center">
@@ -1148,7 +1146,7 @@ const App: React.FC = () => {
               <div className="p-5 border-b border-gray-50 flex justify-between items-center">
                 <h3 className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-widest px-1">AI Konfiguration</h3>
                 {(() => {
-                  const status = providerStatus[settings.provider];
+                  const status = providerStatus[primaryProvider.id];
                   const label = isCheckingProviders
                     ? 'Kontrollerer...'
                     : status === 'connected'
@@ -1168,57 +1166,44 @@ const App: React.FC = () => {
                   );
                 })()}
               </div>
-              <div className="divide-y divide-gray-50">
-                <div className="p-5 flex justify-between items-center">
-                  <span className="text-sm font-semibold">Udbyder</span>
-                  <select 
-                    value={settings.provider} 
-                    onChange={(e) => {
-                      const newProvider = e.target.value;
-                      setSettings(prev => {
-                        const models = MODELS_BY_PROVIDER[newProvider] || [];
-                        const nextModel = models.find(m => m.id === prev.model)?.id || models[0]?.id || "";
-                        return { ...prev, provider: newProvider, model: nextModel };
-                      });
-                    }}
-                    className="bg-transparent text-sm font-bold text-blue-600 outline-none"
-                  >
-                    {PROVIDERS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
+              <div className="p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-[#9CA3AF] uppercase tracking-[0.3em] mb-1">Udbyder</p>
+                    <p className="text-lg font-semibold text-[#111827]">{primaryProvider.name}</p>
+                    <p className="text-[11px] text-[#6B7280] font-medium">Drevet via OpenRouter</p>
+                  </div>
+                  {primaryProvider.apiKeyUrl && (
+                    <a 
+                      href={primaryProvider.apiKeyUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-blue-100 text-[10px] font-black uppercase tracking-tighter text-blue-600 hover:bg-blue-50"
+                    >
+                      Hent nøgle
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                    </a>
+                  )}
                 </div>
-                
-                <div className="p-5 space-y-4">
+                <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-semibold">Model</span>
-                    <div className="flex items-center gap-2">
-                      <select 
-                        value={settings.model} 
-                        onChange={(e) => setSettings(prev => ({...prev, model: e.target.value}))}
-                        className="bg-transparent text-sm font-bold text-blue-600 outline-none text-right max-w-[180px] truncate"
-                      >
-                        {MODELS_BY_PROVIDER[settings.provider]?.length
-                          ? MODELS_BY_PROVIDER[settings.provider]!.map(m => <option key={m.id} value={m.id}>{m.name}</option>)
-                          : <option value="">Ingen modeller tilgængelige</option>
-                        }
-                      </select>
-                    </div>
+                    <select 
+                      value={settings.model} 
+                      onChange={(e) => setSettings(prev => ({...prev, model: e.target.value}))}
+                      className="bg-transparent text-sm font-bold text-blue-600 outline-none text-right max-w-[200px] truncate"
+                    >
+                      {MODELS_BY_PROVIDER[primaryProvider.id]?.length
+                        ? MODELS_BY_PROVIDER[primaryProvider.id]!.map(m => <option key={m.id} value={m.id}>{m.name}</option>)
+                        : <option value="">Ingen modeller tilgængelige</option>
+                      }
+                    </select>
                   </div>
                   <div className="flex items-center justify-between bg-gray-50/50 p-3 rounded-xl border border-gray-100">
                     <div className="flex items-center gap-2 text-[#9CA3AF]">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      <span className="text-[10px] font-bold uppercase tracking-tight">{currentProvider?.name}: {settings.model}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-tight">{primaryProvider.name}: {settings.model}</span>
                     </div>
-                    {currentProvider?.apiKeyUrl && (
-                      <a 
-                        href={currentProvider.apiKeyUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-1 uppercase tracking-tighter"
-                      >
-                        Hent nøgle
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                      </a>
-                    )}
                   </div>
                 </div>
               </div>

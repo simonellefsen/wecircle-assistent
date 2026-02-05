@@ -2,7 +2,7 @@
 
 ## 1. Vision
 WeCircle-Assistent is a mobile-first PWA that helps second-hand sellers identify, price, and describe items using AI. The app must:
-- Capture photos/voice context, run multi-provider AI analysis (OpenRouter defaulting to NVIDIA Nemotron Nano, Grok/xAI, Gemini, OpenAI), and output pricing guidance plus structured metadata.
+- Capture photos/voice context, run OpenRouter-hosted AI analysis (NVIDIA Nemotron Nano as default), and output pricing guidance plus structured metadata.
 - Support user management via Supabase: magic-link login, persistent history/settings, and future paid tiers with usage limits.
 - Run entirely on Vercel (client + API routes) with linting, testing, and type-check CI gates.
 
@@ -16,12 +16,12 @@ WeCircle-Assistent is a mobile-first PWA that helps second-hand sellers identify
 2. **AI Capture & Review**
    - Photos go through free-form cropping + compression.
    - Voice notes captured via Web Speech API.
-   - `analyzeItem` hits `/api/analyze`, which selects provider/model (with OpenRouter defaults and filters out unsupported models). Responses populate pricing, “Efter WeCircle” net price (discount + commission), and metadata boxes with voice-edit icons. Both the review form and history list expose “Kopiér” actions so descriptive titles can be pasted directly into the native WeCircle app.
+   - `analyzeItem` hits `/api/analyze`, which proxies everything through OpenRouter and narrows the model list to a curated set. Responses populate pricing, “Efter WeCircle” net price (discount + commission), and metadata boxes with voice-edit icons. Both the review form and history list expose “Kopiér” actions so descriptive titles can be pasted directly into the native WeCircle app.
    - Usage (runs/tokens/cost) accumulates per session for future metering.
 
 3. **Settings**
-   - Provider picker shows real status (Connected/Missing/Unknown) by probing `/api/providerStatus`.
-   - OpenRouter model list limited to curated set; Nemotron Nano is default.
+   - Provider status badge reflects the OpenRouter credential health (Connected/Missing/Unknown) via `/api/providerStatus`.
+   - Model picker shows only the curated OpenRouter list; Nemotron Nano is default.
    - WeCircle section stores discount (0/25/50%) and fixed 20% commission; UI reflects net price across list + detail pages.
    - Supabase-backed settings table (`user_settings`) tracks provider/model preferences.
 
@@ -33,8 +33,8 @@ WeCircle-Assistent is a mobile-first PWA that helps second-hand sellers identify
 - Triggers keep `updated_at` fresh and seed default settings/plan on new users.
 
 ## 4. API Surface
-- `POST /api/analyze` – server-side AI calls, fanning out to providers (Gemini, OpenAI, xAI, OpenRouter). Requires corresponding API keys set in Vercel.
-- `POST /api/providerStatus` – checks environment keys and remote health for each provider.
+- `POST /api/analyze` – server-side AI calls proxied through OpenRouter using the selected model. Requires `OPENROUTER_API_KEY`.
+- `POST /api/providerStatus` – checks the OpenRouter key and remote health.
 - `POST /api/auth/send-magic-link` – handles rate limiting, redirect validation, Supabase OTP send.
 - Static assets include `favicon.ico`; CSS bundled via Vite (imported in `index.tsx`).
 
@@ -57,5 +57,5 @@ WeCircle-Assistent is a mobile-first PWA that helps second-hand sellers identify
 1. Add Supabase persistence for item history instead of local storage.
 2. Monetization: enforce plan limits via `usage_counters`, integrate Stripe/LemonSqueezy/Paddle for billing, or add Supabase OAuth clients for partners.
 3. Implement CAPTCHA/rate-limit defense on signup endpoint + Supabase auth endpoints before production launch.
-4. Track cumulative token costs per provider and surface them in settings/history.
+4. Track cumulative token costs per model (OpenRouter) and surface them in settings/history.
 5. Port Tailwind config to include custom tokens/components (currently using stock preflight/theme/utilities).
