@@ -39,3 +39,43 @@ Returner resultatet som JSON med nøglerne: 'description', 'price', 'priceNew', 
 export const LANGUAGES = ['Dansk', 'English', 'Svenska', 'Norsk', 'Deutsch'];
 export const CURRENCIES = ['DKK', 'EUR', 'USD', 'GBP', 'SEK', 'NOK'];
 export const DISCOUNT_OPTIONS = [0, 0.25, 0.5];
+
+export type SubscriptionPlan = {
+  slug: string;
+  name: string;
+  description: string;
+  priceLabel: string;
+  appleProductId: string;
+  monthlyAnalyzes: number;
+  monthlyTokens: number;
+};
+
+export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
+  {
+    slug: "starter",
+    name: "Starter",
+    description: "10 analyser pr. måned • ideel til begyndere",
+    priceLabel: "Gratis",
+    appleProductId: "",
+    monthlyAnalyzes: 10,
+    monthlyTokens: 20000,
+  },
+  {
+    slug: "pro",
+    name: "Pro",
+    description: "100 analyser + prioriteret support",
+    priceLabel: "249 kr./md.",
+    appleProductId: "com.wecircle.assistent.pro",
+    monthlyAnalyzes: 100,
+    monthlyTokens: 200000,
+  },
+  {
+    slug: "scale",
+    name: "Scale",
+    description: "Ubegrænset analyser, team-adgang, ekstra rapporter",
+    priceLabel: "Kontakt os",
+    appleProductId: "com.wecircle.assistent.scale",
+    monthlyAnalyzes: 1000,
+    monthlyTokens: 1000000,
+  },
+];

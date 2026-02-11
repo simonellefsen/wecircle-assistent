@@ -22,8 +22,9 @@ WeCircle-Assistent is a mobile-first PWA that helps second-hand sellers identify
 3. **Settings**
    - Provider status badge reflects the OpenRouter credential health (Connected/Missing/Unknown) via `/api/providerStatus`.
    - Model picker shows only the curated OpenRouter list; Nemotron Nano is default.
+   - Subscription card mirrors Apple In-App Purchase tiers (Starter/Pro/Scale) so users know their allowance and are pointed to the App Store subscription manager for upgrades/downgrades.
    - WeCircle section stores discount (0/25/50%) and fixed 20% commission; UI reflects net price across list + detail pages.
-   - Supabase-backed settings table (`user_settings`) tracks provider/model preferences.
+   - Supabase-backed settings table (`user_settings`) tracks provider/model preferences and the user’s Apple-plan snapshot.
 
 ## 3. Data Model (Supabase migrations)
 - `profiles` (1:1 with `auth.users`, holds email, display name, metadata).
@@ -36,6 +37,7 @@ WeCircle-Assistent is a mobile-first PWA that helps second-hand sellers identify
 - `POST /api/analyze` – server-side AI calls proxied through OpenRouter using the selected model. Requires `OPENROUTER_API_KEY`.
 - `POST /api/providerStatus` – checks the OpenRouter key and remote health.
 - `POST /api/auth/send-magic-link` – handles rate limiting, redirect validation, Supabase OTP send.
+- future: `POST /api/billing/verifyReceipt` (not yet implemented) will validate Apple IAP receipts and update `user_plan_assignments`.
 - Static assets include `favicon.ico`; CSS bundled via Vite (imported in `index.tsx`).
 
 ## 5. Build & Deployment

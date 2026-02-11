@@ -4,9 +4,10 @@ import type { User } from '@supabase/supabase-js';
 import { analyzeItem, ANALYZE_API_URL } from './services/aiService';
 import * as Storage from './services/storageService';
 import { fetchUserSettings, persistUserSettings, persistUsageTotals } from './services/userSettingsService';
-import type { AppSettings, CircleItem, UsageTotals } from './types';
-import { DEFAULT_SETTINGS, LANGUAGES, CURRENCIES, MODELS_BY_PROVIDER, DISCOUNT_OPTIONS, OPENROUTER_PROVIDER } from './constants';
+import type { AppSettings, CircleItem, UsageTotals, UserPlanSnapshot } from './types';
+import { DEFAULT_SETTINGS, LANGUAGES, CURRENCIES, MODELS_BY_PROVIDER, DISCOUNT_OPTIONS, OPENROUTER_PROVIDER, SUBSCRIPTION_PLANS } from './constants';
 import { supabase } from './supabaseClient';
+import { fetchUserPlan } from './services/subscriptionService';
 
 const USAGE_STORAGE_KEY = 'wecircle_usage';
 
@@ -605,6 +606,8 @@ const App: React.FC = () => {
   const [usageTotals, setUsageTotals] = useState<UsageTotals>(INITIAL_USAGE_TOTALS);
   const [remoteSettingsReady, setRemoteSettingsReady] = useState(false);
   const [titleCopied, setTitleCopied] = useState(false);
+  const [planSnapshot, setPlanSnapshot] = useState<UserPlanSnapshot | null>(null);
+  const [billingError, setBillingError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const userId = user?.id ?? null;
@@ -706,6 +709,26 @@ const App: React.FC = () => {
       cancelled = true;
     };
   }, [userId, primaryProvider.id]);
+
+  useEffect(() => {
+    if (!supabase || !userId) return;
+    let active = true;
+    const loadPlan = async () => {
+      try {
+        const data = await fetchUserPlan(userId);
+        if (!active) return;
+        setPlanSnapshot(data);
+      } catch (error) {
+        if (!active) return;
+        console.warn("Kunne ikke hente abonnement", error);
+        setBillingError("Kunne ikke hente abonnement.");
+      }
+    };
+    loadPlan();
+    return () => {
+      active = false;
+    };
+  }, [userId]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -1206,6 +1229,66 @@ const App: React.FC = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+            </section>
+
+            {/* Subscription Section */}
+            <section className="bg-white rounded-[28px] overflow-hidden ios-shadow border border-white">
+              <div className="p-5 border-b border-gray-50 flex justify-between items-center">
+                <h3 className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-widest px-1">Abonnement</h3>
+                <span className="text-[9px] font-black uppercase tracking-tighter text-blue-600">
+                  {planSnapshot?.name ?? "Starter"}
+                </span>
+              </div>
+              {billingError && (
+                <div className="px-5 pt-4">
+                  <div className="bg-red-50 text-red-600 text-xs font-semibold rounded-2xl px-4 py-2 border border-red-100">
+                    {billingError}
+                  </div>
+                </div>
+              )}
+              <div className="p-5 space-y-4">
+                {SUBSCRIPTION_PLANS.map((plan) => {
+                  const isCurrent = (planSnapshot?.slug ?? "starter") === plan.slug;
+                  return (
+                    <div
+                      key={plan.slug}
+                      className={`rounded-2xl border p-4 space-y-2 ${
+                        isCurrent ? "border-blue-500 bg-blue-50/60" : "border-gray-100 bg-gray-50/50"
+                      }`}
+                    >
+                      <div className="flex justify-between items-start gap-4">
+                        <div>
+                          <p className="text-sm font-bold text-[#111827]">{plan.name}</p>
+                          <p className="text-xs text-[#6B7280] leading-relaxed">{plan.description}</p>
+                          <p className="text-sm font-semibold text-blue-600 mt-2">{plan.priceLabel}</p>
+                          <p className="text-[11px] text-[#6B7280]">
+                            {plan.monthlyAnalyzes} analyser · {plan.monthlyTokens.toLocaleString("da-DK")} tokens
+                          </p>
+                        </div>
+                        <span className={`text-[10px] font-black uppercase tracking-tighter ${isCurrent ? 'text-green-600' : 'text-[#9CA3AF]'}`}>
+                          {isCurrent ? 'Aktiv' : 'Tilgængelig i App Store'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+                <a
+                  href="https://apps.apple.com/account/subscriptions"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-blue-600 text-white text-[11px] font-black uppercase tracking-tighter active:scale-95 transition"
+                >
+                  Administrer abonnement i App Store
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6h7a1 1 0 011 1v7m0 0l-8 8m8-8l-8-8" />
+                  </svg>
+                </a>
+                {planSnapshot?.periodEnd && (
+                  <p className="text-[11px] text-[#6B7280] text-center">
+                    Fornyes {new Date(planSnapshot.periodEnd).toLocaleDateString("da-DK")}
+                  </p>
+                )}
               </div>
             </section>
 

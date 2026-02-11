@@ -29,6 +29,9 @@ View your app in AI Studio: https://ai.studio/apps/drive/1-dVV58S55qwbi_q5q6Df_n
 | --- | --- | --- |
 | `VITE_ANALYZE_URL` | Client | Optional. Defaults to `/api/analyze` in production. Set when the frontend should talk to a remote API instance. |
 | `OPENROUTER_API_KEY` | Server | Required. We proxy every request through OpenRouter and expose only its curated model list in the UI. |
+| `APPLE_IAP_ISSUER_ID` | Server | App Store Connect API Issuer ID (needed for receipt validation). |
+| `APPLE_IAP_KEY_ID` | Server | Key ID associated with the App Store Server API private key. |
+| `APPLE_IAP_PRIVATE_KEY` | Server | Contents of the `.p8` private key used to call the App Store Server API. |
 | `VITE_SUPABASE_URL` / `SUPABASE_URL` | Client/Server | Supabase project URL for the browser and serverless envs. |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Client | Publishable key for Supabase Auth (magic links). |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server | Service key used in API routes to send magic links and log throttling events. Keep server-side only. |

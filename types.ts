@@ -17,6 +17,15 @@ export interface UsageTotals {
   costUsd: number;
 }
 
+export interface UserPlanSnapshot {
+  slug: string;
+  name: string;
+  status: string;
+  appleProductId?: string;
+  periodEnd?: string | null;
+  allowance?: Record<string, unknown> | null;
+}
+
 export interface CircleItem {
   id: string;
   timestamp: number;
