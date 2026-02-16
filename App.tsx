@@ -4,6 +4,7 @@ import type { User } from '@supabase/supabase-js';
 import { analyzeItem, ANALYZE_API_URL } from './services/aiService';
 import * as Storage from './services/storageService';
 import { fetchUserSettings, persistUserSettings, persistUsageTotals } from './services/userSettingsService';
+import { logItemAuditEvent } from './services/auditService';
 import type { AppSettings, CircleItem, UsageTotals, UserPlanSnapshot } from './types';
 import { DEFAULT_SETTINGS, LANGUAGES, CURRENCIES, MODELS_BY_PROVIDER, DISCOUNT_OPTIONS, OPENROUTER_PROVIDER, SUBSCRIPTION_PLANS } from './constants';
 import { supabase } from './supabaseClient';
@@ -867,8 +868,12 @@ const App: React.FC = () => {
 
   const handleDeleteHistoryItem = async (id: string) => {
     try {
+      const existingItem = history.find((entry) => entry.id === id);
       await Storage.deleteHistoryItem(id);
       setHistory(prev => prev.filter(item => item.id !== id));
+      if (existingItem) {
+        void logItemAuditEvent(userId, 'item_deleted', existingItem);
+      }
     } catch (err) {
       console.error("Kunne ikke slette varen.", err);
       alert("Kunne ikke slette varen.");
@@ -1178,10 +1183,11 @@ const App: React.FC = () => {
               </section>
             )}
 
-            <button onClick={() => {
+            <button onClick={async () => {
               const item = { ...reviewItem, id: reviewItem.id || Date.now().toString(), timestamp: Date.now() } as CircleItem;
-              Storage.saveHistoryItem(item);
+              await Storage.saveHistoryItem(item);
               setHistory(prev => [item, ...prev.filter(i => i.id !== item.id)]);
+              void logItemAuditEvent(userId, 'item_created', item);
               setView('history');
               setCapturedPhotos([]);
               setVoiceContext("");
