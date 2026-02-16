@@ -802,7 +802,7 @@ const App: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [userId]);
+  }, [userId, refreshPendingSyncCount]);
 
   useEffect(() => {
     let cancelled = false;
@@ -852,7 +852,7 @@ const App: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, refreshPendingSyncCount]);
 
   useEffect(() => {
     if (!supabase || !userId || !remoteSettingsReady) return;
