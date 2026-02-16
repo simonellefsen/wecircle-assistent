@@ -181,12 +181,12 @@ const SwipeableListItem: React.FC<{
         <div className="flex-1 py-1 flex flex-col justify-between pr-12">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-bold text-blue-600 mb-0.5">{formatCurrency(item.price, item.currency || 'DKK')}</p>
-              {hasDiscount && (
-                <p className="text-[11px] font-semibold text-amber-600 mb-0.5">
-                  Efter rabat: {formatCurrency(discountedPrice, item.currency || 'DKK')}
-                </p>
-              )}
+              <p className="text-sm font-bold mb-0.5">
+                <span className="text-blue-600">{formatCurrency(item.price, item.currency || 'DKK')}</span>
+                {hasDiscount && (
+                  <span className="text-amber-600 ml-2">{formatCurrency(discountedPrice, item.currency || 'DKK')}</span>
+                )}
+              </p>
               <p className="text-[11px] font-semibold text-green-600 mb-1">Efter WeCircle: {formatCurrency(netPrice, item.currency || 'DKK')}</p>
             </div>
           </div>
@@ -944,16 +944,24 @@ const App: React.FC = () => {
         <h1 className="text-xl font-bold tracking-tight">
           {view === 'history' ? 'Mine Emner' : view === 'capture' ? 'Nyt Emne' : view === 'review' ? 'Gennemse' : 'Indstillinger'}
         </h1>
-        <button
-          type="button"
-          onClick={() => setView('settings')}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-blue-100 bg-blue-50/70 text-blue-700 text-[11px] font-black uppercase tracking-tighter active:scale-95 transition"
-        >
-          Rabat {Math.round(settings.discountPercent * 100)}%
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+        <div className="relative inline-flex items-center rounded-full border border-blue-100 bg-blue-50/70 px-3 py-1.5">
+          <span className="text-[11px] font-black uppercase tracking-tighter text-blue-700 mr-2">Rabat</span>
+          <select
+            value={settings.discountPercent}
+            onChange={(e) => setSettings(prev => ({ ...prev, discountPercent: parseFloat(e.target.value) }))}
+            className="appearance-none bg-transparent pr-5 text-[11px] font-black uppercase tracking-tighter text-blue-700 outline-none cursor-pointer"
+            aria-label="Vælg rabat i header"
+          >
+            {DISCOUNT_OPTIONS.map(option => (
+              <option key={option} value={option}>
+                {Math.round(option * 100)}%
+              </option>
+            ))}
+          </select>
+          <svg className="pointer-events-none absolute right-3 w-3 h-3 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
           </svg>
-        </button>
+        </div>
       </header>
 
       <main className="flex-1 p-6 pb-32">
