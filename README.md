@@ -57,6 +57,37 @@ Deployments on Vercel should configure these vars in the project settings so tha
 5. Set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_PUBLISHABLE_KEY` in `.env.local` and in Vercel project settings.
 6. Users can now request a magic link on the login screen; the `/api/auth/send-magic-link` route enforces per-email and per-IP throttling backed by the `auth_throttle` table before calling Supabase Auth. If you get redirected back to the login screen, double-check that `APP_BASE_URL` and the Supabase **Site URL** are set to the same production domain so the session can be exchanged correctly.
 
+## Architecture
+
+```mermaid
+flowchart TD
+  U["User (iPhone browser)"] --> FE["React App (Vite, App.tsx)"]
+
+  FE --> IDX["IndexedDB (local item cache)"]
+  FE --> APIA["/api/analyze"]
+  FE --> APIL["/api/auth/send-magic-link"]
+  FE --> SB["Supabase (publishable key client)"]
+
+  APIA --> OR["OpenRouter / LLM providers"]
+  APIL --> SVC["Supabase service-role client"]
+  SVC --> SBAUTH["Supabase Auth + auth_throttle"]
+
+  SB --> SBAUTH
+  SB --> SBTBL["Supabase Postgres tables"]
+
+  SBTBL --> PRO["profiles / user_settings / user_plan_assignments"]
+  SBTBL --> ITEMS["user_items (shared item history)"]
+  SBTBL --> AUD["audit_events"]
+
+  FE --> SYNC["Item sync queue (localStorage)"]
+  SYNC --> SB
+```
+
+Notes:
+- `user_settings` and `user_items` are keyed by `user_id`, so the same login shares data across browsers/devices.
+- IndexedDB remains local-first for responsiveness; background sync and retry queue make remote writes fault tolerant.
+- `audit_events` captures item lifecycle and auth lifecycle events for traceability.
+
 ## Quality gates (linting & tests)
 
 Before pushing or deploying, run the checks that Vercel also executes during `npm run vercel-build`:
