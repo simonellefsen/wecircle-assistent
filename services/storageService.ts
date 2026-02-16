@@ -55,3 +55,20 @@ export const deleteHistoryItem = async (id: string): Promise<void> => {
     request.onerror = () => reject("Failed to delete item from IndexedDB");
   });
 };
+
+export const replaceHistory = async (items: CircleItem[]): Promise<void> => {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, "readwrite");
+    const store = transaction.objectStore(STORE_NAME);
+    const clearRequest = store.clear();
+    clearRequest.onerror = () => reject("Failed to clear IndexedDB history");
+    clearRequest.onsuccess = () => {
+      items.forEach((item) => {
+        store.put(item);
+      });
+    };
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject("Failed to replace IndexedDB history");
+  });
+};

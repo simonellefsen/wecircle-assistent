@@ -5,6 +5,7 @@ import { analyzeItem, ANALYZE_API_URL } from './services/aiService';
 import * as Storage from './services/storageService';
 import { fetchUserSettings, persistUserSettings, persistUsageTotals } from './services/userSettingsService';
 import { logItemAuditEvent } from './services/auditService';
+import { deleteUserItem, fetchUserItems, upsertUserItem, upsertUserItems } from './services/userItemsService';
 import type { AppSettings, CircleItem, UsageTotals, UserPlanSnapshot } from './types';
 import { DEFAULT_SETTINGS, LANGUAGES, CURRENCIES, MODELS_BY_PROVIDER, DISCOUNT_OPTIONS, OPENROUTER_PROVIDER, SUBSCRIPTION_PLANS } from './constants';
 import { supabase } from './supabaseClient';
@@ -35,6 +36,21 @@ const calculateNetPrice = (price: number, discountPercent: number, commissionPer
 const formatUsd = (amount: number) => {
   if (!Number.isFinite(amount)) return '—';
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 4 }).format(amount);
+};
+
+const mergeHistoryItems = (localItems: CircleItem[], remoteItems: CircleItem[]) => {
+  const merged = new Map<string, CircleItem>();
+  remoteItems.forEach((item) => {
+    if (item?.id) merged.set(item.id, item);
+  });
+  localItems.forEach((item) => {
+    if (!item?.id) return;
+    const existing = merged.get(item.id);
+    if (!existing || (item.timestamp ?? 0) > (existing.timestamp ?? 0)) {
+      merged.set(item.id, item);
+    }
+  });
+  return Array.from(merged.values()).sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
 };
 
 type ProviderStatus = 'connected' | 'missing';
@@ -741,16 +757,48 @@ const App: React.FC = () => {
   }, [userId]);
 
   useEffect(() => {
+    let cancelled = false;
     const loadData = async () => {
+      setIsLoadingHistory(true);
       try {
-        const storedHistory = await Storage.getHistory();
-        setHistory(storedHistory);
+        const localHistory = await Storage.getHistory();
+        if (!supabase || !userId) {
+          if (!cancelled) setHistory(localHistory);
+          return;
+        }
+
+        const remoteHistory = await fetchUserItems(userId);
+        const mergedHistory = mergeHistoryItems(localHistory, remoteHistory);
+
+        const remoteById = new Map(remoteHistory.map((item) => [item.id, item]));
+        const itemsToUpsert = mergedHistory.filter((item) => {
+          const remoteItem = remoteById.get(item.id);
+          return !remoteItem || (item.timestamp ?? 0) > (remoteItem.timestamp ?? 0);
+        });
+
+        if (itemsToUpsert.length > 0) {
+          await upsertUserItems(userId, itemsToUpsert);
+        }
+
+        await Storage.replaceHistory(mergedHistory);
+        if (!cancelled) setHistory(mergedHistory);
       } catch (error) {
         console.warn("Kunne ikke hente historik", error);
-      } finally { setIsLoadingHistory(false); }
+        try {
+          const fallbackHistory = await Storage.getHistory();
+          if (!cancelled) setHistory(fallbackHistory);
+        } catch (localError) {
+          console.warn("Kunne ikke hente lokal historik", localError);
+        }
+      } finally {
+        if (!cancelled) setIsLoadingHistory(false);
+      }
     };
     loadData();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (!supabase || !userId || !remoteSettingsReady) return;
@@ -869,6 +917,9 @@ const App: React.FC = () => {
   const handleDeleteHistoryItem = async (id: string) => {
     try {
       const existingItem = history.find((entry) => entry.id === id);
+      if (userId) {
+        await deleteUserItem(userId, id);
+      }
       await Storage.deleteHistoryItem(id);
       setHistory(prev => prev.filter(item => item.id !== id));
       if (existingItem) {
@@ -1196,6 +1247,9 @@ const App: React.FC = () => {
             <button onClick={async () => {
               const item = { ...reviewItem, id: reviewItem.id || Date.now().toString(), timestamp: Date.now() } as CircleItem;
               await Storage.saveHistoryItem(item);
+              if (userId) {
+                await upsertUserItem(userId, item);
+              }
               setHistory(prev => [item, ...prev.filter(i => i.id !== item.id)]);
               void logItemAuditEvent(userId, 'item_created', item);
               setView('history');
