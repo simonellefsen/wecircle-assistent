@@ -6,6 +6,7 @@ import * as Storage from './services/storageService';
 import { fetchUserSettings, persistUserSettings, persistUsageTotals } from './services/userSettingsService';
 import { logItemAuditEvent } from './services/auditService';
 import { deleteUserItem, fetchUserItems, upsertUserItem, upsertUserItems } from './services/userItemsService';
+import { enqueuePendingUserItemDelete, enqueuePendingUserItemUpsert, flushPendingUserItemOps } from './services/userItemSyncQueue';
 import type { AppSettings, CircleItem, UsageTotals, UserPlanSnapshot } from './types';
 import { DEFAULT_SETTINGS, LANGUAGES, CURRENCIES, MODELS_BY_PROVIDER, DISCOUNT_OPTIONS, OPENROUTER_PROVIDER, SUBSCRIPTION_PLANS } from './constants';
 import { supabase } from './supabaseClient';
@@ -639,6 +640,15 @@ const App: React.FC = () => {
   const userId = user?.id ?? null;
   const primaryProvider = OPENROUTER_PROVIDER;
 
+  const flushPendingItemOps = useCallback(async () => {
+    if (!userId) return;
+    try {
+      await flushPendingUserItemOps(userId);
+    } catch (error) {
+      console.warn("Kunne ikke synkronisere ventende item-opgaver", error);
+    }
+  }, [userId]);
+
   useEffect(() => {
     if (!supabase) {
       setAuthLoading(false);
@@ -737,6 +747,25 @@ const App: React.FC = () => {
   }, [userId, primaryProvider.id]);
 
   useEffect(() => {
+    if (!userId) return;
+    void flushPendingItemOps();
+
+    const interval = window.setInterval(() => {
+      void flushPendingItemOps();
+    }, 15000);
+
+    const onOnline = () => {
+      void flushPendingItemOps();
+    };
+    window.addEventListener("online", onOnline);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [userId, flushPendingItemOps]);
+
+  useEffect(() => {
     if (!supabase || !userId) return;
     let active = true;
     const loadPlan = async () => {
@@ -777,7 +806,12 @@ const App: React.FC = () => {
         });
 
         if (itemsToUpsert.length > 0) {
-          await upsertUserItems(userId, itemsToUpsert);
+          try {
+            await upsertUserItems(userId, itemsToUpsert);
+          } catch (syncError) {
+            console.warn("Kunne ikke upserte historik til Supabase", syncError);
+            itemsToUpsert.forEach((item) => enqueuePendingUserItemUpsert(userId, item));
+          }
         }
 
         await Storage.replaceHistory(mergedHistory);
@@ -917,11 +951,16 @@ const App: React.FC = () => {
   const handleDeleteHistoryItem = async (id: string) => {
     try {
       const existingItem = history.find((entry) => entry.id === id);
-      if (userId) {
-        await deleteUserItem(userId, id);
-      }
       await Storage.deleteHistoryItem(id);
       setHistory(prev => prev.filter(item => item.id !== id));
+      if (userId) {
+        try {
+          await deleteUserItem(userId, id);
+        } catch (error) {
+          console.warn("Kunne ikke slette item i Supabase, lægger i kø", error);
+          enqueuePendingUserItemDelete(userId, id);
+        }
+      }
       if (existingItem) {
         void logItemAuditEvent(userId, 'item_deleted', existingItem);
       }
@@ -1248,7 +1287,12 @@ const App: React.FC = () => {
               const item = { ...reviewItem, id: reviewItem.id || Date.now().toString(), timestamp: Date.now() } as CircleItem;
               await Storage.saveHistoryItem(item);
               if (userId) {
-                await upsertUserItem(userId, item);
+                try {
+                  await upsertUserItem(userId, item);
+                } catch (error) {
+                  console.warn("Kunne ikke gemme item i Supabase, lægger i kø", error);
+                  enqueuePendingUserItemUpsert(userId, item);
+                }
               }
               setHistory(prev => [item, ...prev.filter(i => i.id !== item.id)]);
               void logItemAuditEvent(userId, 'item_created', item);
