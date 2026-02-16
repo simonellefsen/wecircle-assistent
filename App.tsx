@@ -100,7 +100,8 @@ const SwipeableListItem: React.FC<{
   onDelete: (id: string) => void; 
   onClick: () => void;
   netPrice: number;
-}> = ({ item, onDelete, onClick, netPrice }) => {
+  discountPercent: number;
+}> = ({ item, onDelete, onClick, netPrice, discountPercent }) => {
   const [startX, setStartX] = useState(0);
   const [translateX, setTranslateX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -108,6 +109,9 @@ const SwipeableListItem: React.FC<{
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [copied, setCopied] = useState(false);
   const threshold = -80;
+  const itemPrice = Number.isFinite(item.price) ? item.price : 0;
+  const discountedPrice = Math.max(0, Math.round(itemPrice * (1 - discountPercent) * 100) / 100);
+  const hasDiscount = discountPercent > 0;
 
   useEffect(() => {
     setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -178,6 +182,11 @@ const SwipeableListItem: React.FC<{
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-sm font-bold text-blue-600 mb-0.5">{formatCurrency(item.price, item.currency || 'DKK')}</p>
+              {hasDiscount && (
+                <p className="text-[11px] font-semibold text-amber-600 mb-0.5">
+                  Efter rabat: {formatCurrency(discountedPrice, item.currency || 'DKK')}
+                </p>
+              )}
               <p className="text-[11px] font-semibold text-green-600 mb-1">Efter WeCircle: {formatCurrency(netPrice, item.currency || 'DKK')}</p>
             </div>
           </div>
@@ -935,6 +944,16 @@ const App: React.FC = () => {
         <h1 className="text-xl font-bold tracking-tight">
           {view === 'history' ? 'Mine Emner' : view === 'capture' ? 'Nyt Emne' : view === 'review' ? 'Gennemse' : 'Indstillinger'}
         </h1>
+        <button
+          type="button"
+          onClick={() => setView('settings')}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-blue-100 bg-blue-50/70 text-blue-700 text-[11px] font-black uppercase tracking-tighter active:scale-95 transition"
+        >
+          Rabat {Math.round(settings.discountPercent * 100)}%
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
       </header>
 
       <main className="flex-1 p-6 pb-32">
@@ -956,6 +975,7 @@ const App: React.FC = () => {
                       key={item.id} 
                       item={item} 
                       netPrice={netPrice}
+                      discountPercent={settings.discountPercent}
                       onDelete={handleDeleteHistoryItem} 
                       onClick={() => { setReviewItem(item); setView('review'); setShowSimilarLinks(false); }} 
                     />
