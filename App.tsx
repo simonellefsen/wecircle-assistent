@@ -1108,7 +1108,7 @@ const App: React.FC = () => {
                     <>
                       {settings.discountPercent > 0 && (
                         <p className="text-[11px] font-bold text-amber-600 px-1">
-                          {formatCurrency(
+                          Efter rabat: {formatCurrency(
                             Math.max(0, Math.round((reviewItem.price || 0) * (1 - settings.discountPercent) * 100) / 100),
                             settings.currency
                           )}
