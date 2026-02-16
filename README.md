@@ -66,3 +66,7 @@ Before pushing or deploying, run the checks that Vercel also executes during `np
 - `npm run typecheck` – Ensures the TypeScript project compiles with `tsc --noEmit`.
 
 Vercel reads `vercel.json` and executes `npm run vercel-build`, which chains the three commands above before `vite build`. Any failing step stops the deployment.
+
+### Local pre-push guard
+
+This repo now includes a git pre-push hook at `.githooks/pre-push` that runs `npm run vercel-build` before pushes, so lint/test/typecheck/build failures are caught locally first.
