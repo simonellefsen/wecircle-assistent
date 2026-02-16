@@ -96,3 +96,7 @@ export const flushPendingUserItemOps = async (userId: string) => {
 
   writeQueue(compactQueue(keep));
 };
+
+export const getPendingUserItemOpsCount = (userId: string) => {
+  return readQueue().filter((op) => op.userId === userId).length;
+};

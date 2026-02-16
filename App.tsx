@@ -6,7 +6,7 @@ import * as Storage from './services/storageService';
 import { fetchUserSettings, persistUserSettings, persistUsageTotals } from './services/userSettingsService';
 import { logItemAuditEvent } from './services/auditService';
 import { deleteUserItem, fetchUserItems, upsertUserItem, upsertUserItems } from './services/userItemsService';
-import { enqueuePendingUserItemDelete, enqueuePendingUserItemUpsert, flushPendingUserItemOps } from './services/userItemSyncQueue';
+import { enqueuePendingUserItemDelete, enqueuePendingUserItemUpsert, flushPendingUserItemOps, getPendingUserItemOpsCount } from './services/userItemSyncQueue';
 import type { AppSettings, CircleItem, UsageTotals, UserPlanSnapshot } from './types';
 import { DEFAULT_SETTINGS, LANGUAGES, CURRENCIES, MODELS_BY_PROVIDER, DISCOUNT_OPTIONS, OPENROUTER_PROVIDER, SUBSCRIPTION_PLANS } from './constants';
 import { supabase } from './supabaseClient';
@@ -635,6 +635,7 @@ const App: React.FC = () => {
   const [titleCopied, setTitleCopied] = useState(false);
   const [planSnapshot, setPlanSnapshot] = useState<UserPlanSnapshot | null>(null);
   const [billingError, setBillingError] = useState<string | null>(null);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const userId = user?.id ?? null;
@@ -644,9 +645,18 @@ const App: React.FC = () => {
     if (!userId) return;
     try {
       await flushPendingUserItemOps(userId);
+      setPendingSyncCount(getPendingUserItemOpsCount(userId));
     } catch (error) {
       console.warn("Kunne ikke synkronisere ventende item-opgaver", error);
     }
+  }, [userId]);
+
+  const refreshPendingSyncCount = useCallback(() => {
+    if (!userId) {
+      setPendingSyncCount(0);
+      return;
+    }
+    setPendingSyncCount(getPendingUserItemOpsCount(userId));
   }, [userId]);
 
   useEffect(() => {
@@ -766,6 +776,15 @@ const App: React.FC = () => {
   }, [userId, flushPendingItemOps]);
 
   useEffect(() => {
+    refreshPendingSyncCount();
+    if (!userId) return;
+    const interval = window.setInterval(() => {
+      refreshPendingSyncCount();
+    }, 3000);
+    return () => window.clearInterval(interval);
+  }, [userId, refreshPendingSyncCount]);
+
+  useEffect(() => {
     if (!supabase || !userId) return;
     let active = true;
     const loadPlan = async () => {
@@ -811,6 +830,7 @@ const App: React.FC = () => {
           } catch (syncError) {
             console.warn("Kunne ikke upserte historik til Supabase", syncError);
             itemsToUpsert.forEach((item) => enqueuePendingUserItemUpsert(userId, item));
+            refreshPendingSyncCount();
           }
         }
 
@@ -959,6 +979,7 @@ const App: React.FC = () => {
         } catch (error) {
           console.warn("Kunne ikke slette item i Supabase, lægger i kø", error);
           enqueuePendingUserItemDelete(userId, id);
+          refreshPendingSyncCount();
         }
       }
       if (existingItem) {
@@ -1036,9 +1057,16 @@ const App: React.FC = () => {
   return (
     <div className="max-w-md mx-auto min-h-screen flex flex-col bg-gray-50 font-inter text-[#111827]">
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b px-6 py-4 pt-[env(safe-area-inset-top)] flex justify-between items-center">
-        <h1 className="text-xl font-bold tracking-tight">
-          {view === 'history' ? 'Mine Emner' : view === 'capture' ? 'Nyt Emne' : view === 'review' ? 'Gennemse' : 'Indstillinger'}
-        </h1>
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">
+            {view === 'history' ? 'Mine Emner' : view === 'capture' ? 'Nyt Emne' : view === 'review' ? 'Gennemse' : 'Indstillinger'}
+          </h1>
+          {userId && (
+            <p className={`text-[10px] font-bold uppercase tracking-wider mt-1 ${pendingSyncCount > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+              {pendingSyncCount > 0 ? `Afventer sync (${pendingSyncCount})` : 'Synkroniseret'}
+            </p>
+          )}
+        </div>
         <div className="relative inline-flex items-center rounded-full border border-blue-100 bg-blue-50/70 px-3 py-1.5">
           <span className="text-[11px] font-black uppercase tracking-tighter text-blue-700 mr-2">Rabat</span>
           <select
@@ -1292,6 +1320,7 @@ const App: React.FC = () => {
                 } catch (error) {
                   console.warn("Kunne ikke gemme item i Supabase, lægger i kø", error);
                   enqueuePendingUserItemUpsert(userId, item);
+                  refreshPendingSyncCount();
                 }
               }
               setHistory(prev => [item, ...prev.filter(i => i.id !== item.id)]);
