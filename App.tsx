@@ -1105,9 +1105,19 @@ const App: React.FC = () => {
                   <label className="text-[10px] font-bold text-[#9CA3AF] uppercase px-1">Vurderet Pris ({settings.currency})</label>
                   <input type="number" value={reviewItem.price || ''} onChange={(e) => setReviewItem({ ...reviewItem, price: parseFloat(e.target.value) || 0 })} className="w-full bg-[#F9FAFB] border-none rounded-[20px] p-4 text-lg font-bold text-blue-600" />
                   {Number.isFinite(reviewItem.price) && (
-                    <p className="text-[11px] font-bold text-green-600 px-1">
-                      Efter WeCircle: {formatCurrency(calculateNetPrice(reviewItem.price || 0, settings.discountPercent, settings.commissionPercent), settings.currency)}
-                    </p>
+                    <>
+                      {settings.discountPercent > 0 && (
+                        <p className="text-[11px] font-bold text-amber-600 px-1">
+                          {formatCurrency(
+                            Math.max(0, Math.round((reviewItem.price || 0) * (1 - settings.discountPercent) * 100) / 100),
+                            settings.currency
+                          )}
+                        </p>
+                      )}
+                      <p className="text-[11px] font-bold text-green-600 px-1">
+                        Efter WeCircle: {formatCurrency(calculateNetPrice(reviewItem.price || 0, settings.discountPercent, settings.commissionPercent), settings.currency)}
+                      </p>
+                    </>
                   )}
                 </div>
               </div>
