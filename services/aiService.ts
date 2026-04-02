@@ -20,8 +20,9 @@ Brug Google Search til at finde 2-3 lignende varer til salg online for at valide
 Du SKAL prioritere at finde links fra de danske genbrugsplatforme 'Trendsales' og 'DBA' (Den Blå Avis).
 1. Søg specifikt efter varen på Trendsales og DBA først.
 2. Kun hvis du ikke finder relevante match på disse platforme, må du inkludere links fra generelle webshops eller internationale sider.
-3. Forsøg altid at finde og verificere varens nuværende nypris (priceNew).
-4. Inkludér alle fundne links i 'similarLinks' feltet.`;
+3. Feltet 'price' skal altid udfyldes med et tal. Hvis du ikke kan verificere en præcis pris online, skal du estimere en realistisk genbrugspris alligevel.
+4. Forsøg altid at finde og verificere varens nuværende nypris (priceNew), men 'priceNew' er mindre vigtig end at levere en brugbar 'price'.
+5. Inkludér alle fundne links i 'similarLinks' feltet.`;
 
   if (voiceContext) {
     prompt += `\n\nBRUGER-KONTEKST (Vigtigt!): ${voiceContext}`;

@@ -1444,6 +1444,27 @@ const App: React.FC = () => {
                       <span className="text-[10px] font-bold uppercase tracking-tight">{primaryProvider.name}: {settings.model}</span>
                     </div>
                   </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-semibold">Prompt</span>
+                      <button
+                        onClick={() => setSettings({...settings, customPrompt: DEFAULT_SETTINGS.customPrompt})}
+                        className="text-[9px] font-black text-blue-600 uppercase tracking-tighter active:scale-95 transition-transform"
+                      >
+                        Nulstil
+                      </button>
+                    </div>
+                    <textarea
+                      value={settings.customPrompt}
+                      onChange={(e) => setSettings({...settings, customPrompt: e.target.value})}
+                      placeholder="Indtast instruktioner til AI..."
+                      rows={8}
+                      className="w-full bg-[#F9FAFB] border-none rounded-[20px] p-4 text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-gray-300 leading-relaxed"
+                    />
+                    <p className="text-[9px] text-[#9CA3AF] font-medium leading-normal px-1">
+                      Brug <span className="text-blue-500 font-bold">{"{language}"}</span> og <span className="text-blue-500 font-bold">{"{currency}"}</span> som pladsholdere for de valgte indstillinger.
+                    </p>
+                  </div>
                 </div>
               </div>
             </section>
@@ -1568,31 +1589,6 @@ const App: React.FC = () => {
                   <p className="text-sm font-semibold">{formatUsd(usageTotals.costUsd)}</p>
                   <p className="text-[10px] text-[#9CA3AF] mt-1">Kun vist, hvis udbyderen rapporterer omkostninger.</p>
                 </div>
-              </div>
-            </section>
-
-            {/* Prompt configuration section */}
-            <section className="bg-white rounded-[28px] overflow-hidden ios-shadow border border-white">
-              <div className="p-5 border-b border-gray-50 flex justify-between items-center">
-                <h3 className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-widest px-1">Prompt Konfiguration</h3>
-                <button 
-                  onClick={() => setSettings({...settings, customPrompt: DEFAULT_SETTINGS.customPrompt})}
-                  className="text-[9px] font-black text-blue-600 uppercase tracking-tighter active:scale-95 transition-transform"
-                >
-                  Nulstil
-                </button>
-              </div>
-              <div className="p-5">
-                <textarea 
-                  value={settings.customPrompt}
-                  onChange={(e) => setSettings({...settings, customPrompt: e.target.value})}
-                  placeholder="Indtast instruktioner til AI..."
-                  rows={8}
-                  className="w-full bg-[#F9FAFB] border-none rounded-[20px] p-4 text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-gray-300 leading-relaxed"
-                />
-                <p className="mt-3 text-[9px] text-[#9CA3AF] font-medium leading-normal px-1">
-                  Brug <span className="text-blue-500 font-bold">{"{language}"}</span> og <span className="text-blue-500 font-bold">{"{currency}"}</span> som pladsholdere for de valgte indstillinger.
-                </p>
               </div>
             </section>
 
