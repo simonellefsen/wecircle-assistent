@@ -23,7 +23,6 @@ export const MODELS_BY_PROVIDER: Record<string, ModelOption[]> = {
     { id: 'google/gemini-3-flash-preview', name: 'Google Gemini 3 Flash Preview', pricingLabel: '$0.50/M input · $3/M output' },
     { id: 'x-ai/grok-4.20-beta', name: 'xAI Grok 4.20 Beta', pricingLabel: '$2/M input · $6/M output' },
     { id: 'qwen/qwen3.5-9b', name: 'Qwen 3.5 9B', pricingLabel: '$0.10/M input · $0.15/M output' },
-    { id: 'stepfun/step-3.5-flash:free', name: 'StepFun Step 3.5 Flash (Free)', pricingLabel: '$0/M input · $0/M output' },
     { id: 'z-ai/glm-5v-turbo', name: 'Z.ai GLM 5V Turbo', pricingLabel: '$1.20/M input · $4/M output' },
     { id: 'rekaai/reka-edge', name: 'Reka Edge', pricingLabel: '$0.10/M input · $0.10/M output' },
     { id: 'amazon/nova-2-lite-v1', name: 'Amazon Nova 2 Lite v1', pricingLabel: '$0.30/M input · $2.50/M output' },
