@@ -12,9 +12,10 @@ export const PROVIDERS = [OPENROUTER_PROVIDER];
 
 export const MODELS_BY_PROVIDER: Record<string, { id: string, name: string }[]> = {
   openrouter: [
-    { id: 'openai/gpt-4.1', name: 'OpenAI GPT-4.1' },
-    { id: 'google/gemini-2.5-flash', name: 'Google Gemini 2.5 Flash' },
-    { id: 'x-ai/grok-4.1-fast', name: 'xAI Grok 4.1 Fast' },
+    { id: 'openai/gpt-5-mini', name: 'OpenAI GPT-5 Mini' },
+    { id: 'google/gemini-3-flash-preview', name: 'Google Gemini 3 Flash Preview' },
+    { id: 'x-ai/grok-4.20-beta', name: 'xAI Grok 4.20 Beta' },
+    { id: 'qwen/qwen3.6-plus-preview:free', name: 'Qwen 3.6 Plus Preview (Free)' },
     { id: 'amazon/nova-2-lite-v1', name: 'Amazon Nova 2 Lite v1' },
     { id: 'nvidia/nemotron-nano-12b-v2-vl:free', name: 'NVIDIA Nemotron Nano 12B v2 VL (Free)' }
   ]
