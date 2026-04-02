@@ -147,6 +147,40 @@ const coerceContentToText = (content: unknown) => {
 const stripJsonFences = (text: string) =>
   text.replace(/```json/gi, "").replace(/```/g, "").trim();
 
+const extractJsonObjectCandidate = (text: string) => {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) return text;
+  return text.slice(start, end + 1);
+};
+
+const normalizeJsonLikeText = (text: string) =>
+  text
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/,\s*([}\]])/g, "$1")
+    .replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*:)/g, '$1"$2"$3')
+    .replace(/'([^'\\]*(?:\\.[^'\\]*)*)'/g, '"$1"');
+
+const parseModelJson = (text: string): AIResult => {
+  const cleaned = stripJsonFences(text);
+  try {
+    return JSON.parse(cleaned) as AIResult;
+  } catch {
+    // Fall through to more tolerant parsing for providers that emit JSON-like text.
+  }
+
+  const extracted = extractJsonObjectCandidate(cleaned);
+  try {
+    return JSON.parse(extracted) as AIResult;
+  } catch {
+    // Fall through to sanitized parse attempt.
+  }
+
+  const normalized = normalizeJsonLikeText(extracted);
+  return JSON.parse(normalized) as AIResult;
+};
+
 type CompletionUsage = OpenAI.Chat.Completions.ChatCompletion["usage"];
 
 const createOpenAICompatibleHandler =
@@ -205,11 +239,7 @@ const createOpenAICompatibleHandler =
       throw new Error("Tomt svar fra modellen.");
     }
 
-    if (!options?.useSchema) {
-      responseText = stripJsonFences(responseText);
-    }
-
-    const parsed = JSON.parse(responseText) as AIResult;
+    const parsed = parseModelJson(responseText);
     const usageMeta = completion.usage as
       | (CompletionUsage & { total_cost?: { usd?: number } })
       | undefined;
@@ -244,6 +274,7 @@ const openRouterHandler = createOpenAICompatibleHandler({
       process.env.OPENROUTER_REFERER || "https://wecircle-assistent.vercel.app",
     "X-Title": "WeCircle Assistent",
   },
+  useSchema: true,
 });
 
 const providerHandlers: Record<string, ProviderHandler> = {
