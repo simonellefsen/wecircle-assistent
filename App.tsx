@@ -636,6 +636,7 @@ const App: React.FC = () => {
   const [planSnapshot, setPlanSnapshot] = useState<UserPlanSnapshot | null>(null);
   const [billingError, setBillingError] = useState<string | null>(null);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [showNewItemPrompt, setShowNewItemPrompt] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const userId = user?.id ?? null;
@@ -1030,6 +1031,61 @@ const App: React.FC = () => {
     } finally { setIsAnalyzing(false); }
   };
 
+  const resetCurrentItemFlow = () => {
+    setReviewItem(null);
+    setCapturedPhotos([]);
+    setVoiceContext("");
+    setAnalysisError(null);
+    setShowSimilarLinks(false);
+    setView('capture');
+  };
+
+  const saveCurrentReviewItem = async () => {
+    if (!reviewItem) return;
+    const item = { ...reviewItem, id: reviewItem.id || Date.now().toString(), timestamp: Date.now() } as CircleItem;
+    await Storage.saveHistoryItem(item);
+    if (userId) {
+      try {
+        await upsertUserItem(userId, item);
+      } catch (error) {
+        console.warn("Kunne ikke gemme item i Supabase, lægger i kø", error);
+        enqueuePendingUserItemUpsert(userId, item);
+        refreshPendingSyncCount();
+      }
+    }
+    setHistory(prev => [item, ...prev.filter(i => i.id !== item.id)]);
+    void logItemAuditEvent(userId, 'item_created', item);
+  };
+
+  const handlePrimaryAction = () => {
+    setAnalysisError(null);
+    if (view === 'review' && reviewItem && capturedPhotos.length > 0) {
+      setShowNewItemPrompt(true);
+      return;
+    }
+    if (view !== 'capture') {
+      setView('capture');
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleStartFreshWithoutSaving = () => {
+    setShowNewItemPrompt(false);
+    resetCurrentItemFlow();
+  };
+
+  const handleSaveAndStartFresh = async () => {
+    try {
+      await saveCurrentReviewItem();
+      setShowNewItemPrompt(false);
+      resetCurrentItemFlow();
+    } catch (error) {
+      console.error("Kunne ikke gemme varen.", error);
+      alert("Kunne ikke gemme varen.");
+    }
+  };
+
   const handleCopyTitle = async () => {
     if (!reviewItem?.description || typeof navigator === 'undefined' || !navigator.clipboard) return;
     try {
@@ -1312,20 +1368,9 @@ const App: React.FC = () => {
             )}
 
             <button onClick={async () => {
-              const item = { ...reviewItem, id: reviewItem.id || Date.now().toString(), timestamp: Date.now() } as CircleItem;
-              await Storage.saveHistoryItem(item);
-              if (userId) {
-                try {
-                  await upsertUserItem(userId, item);
-                } catch (error) {
-                  console.warn("Kunne ikke gemme item i Supabase, lægger i kø", error);
-                  enqueuePendingUserItemUpsert(userId, item);
-                  refreshPendingSyncCount();
-                }
-              }
-              setHistory(prev => [item, ...prev.filter(i => i.id !== item.id)]);
-              void logItemAuditEvent(userId, 'item_created', item);
+              await saveCurrentReviewItem();
               setView('history');
+              setReviewItem(null);
               setCapturedPhotos([]);
               setVoiceContext("");
               setAnalysisError(null);
@@ -1604,12 +1649,43 @@ const App: React.FC = () => {
 
       {cropIndex !== null && <CropModal src={capturedPhotos[cropIndex]} onCancel={() => setCropIndex(null)} onCrop={(res) => { setCapturedPhotos(p => p.map((img, i) => i === cropIndex ? res : img)); setCropIndex(null); }} />}
 
+      {showNewItemPrompt && (
+        <div className="fixed inset-0 z-[120] bg-[#111827]/40 backdrop-blur-sm flex items-end justify-center p-4 safe-area-bottom">
+          <div className="w-full max-w-sm bg-white rounded-[28px] p-6 ios-shadow border border-white animate-in slide-in-from-bottom-4 duration-200">
+            <h3 className="text-lg font-bold text-[#111827]">Start nyt emne?</h3>
+            <p className="mt-2 text-sm font-medium text-[#6B7280] leading-relaxed">
+              Vil du gemme det nuværende emne, før du starter forfra med nye billeder?
+            </p>
+            <div className="mt-5 space-y-3">
+              <button
+                onClick={handleSaveAndStartFresh}
+                className="w-full bg-[#2563eb] text-white py-4 rounded-[20px] font-bold active:scale-95 transition-all"
+              >
+                Ja, gem og start nyt
+              </button>
+              <button
+                onClick={handleStartFreshWithoutSaving}
+                className="w-full bg-[#F59E0B] text-white py-4 rounded-[20px] font-bold active:scale-95 transition-all"
+              >
+                Nej, start nyt
+              </button>
+              <button
+                onClick={() => setShowNewItemPrompt(false)}
+                className="w-full bg-[#F9FAFB] text-[#111827] py-4 rounded-[20px] font-bold border border-gray-100 active:scale-95 transition-all"
+              >
+                Annuller
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-100 safe-area-bottom px-10 py-3 flex justify-between items-center z-50">
         <button onClick={() => { setView('history'); setAnalysisError(null); }} className={`flex flex-col items-center gap-1.5 ${view === 'history' ? 'text-blue-600' : 'text-gray-300'}`}>
           <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
           <span className="text-[9px] font-bold uppercase tracking-widest">Varer</span>
         </button>
-        <button onClick={() => { if (view !== 'capture') setView('capture'); else fileInputRef.current?.click(); setAnalysisError(null); }} className="bg-[#2563eb] text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center -translate-y-6 border-4 border-white active:scale-90 transition-all">
+        <button onClick={handlePrimaryAction} className="bg-[#2563eb] text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center -translate-y-6 border-4 border-white active:scale-90 transition-all">
           <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" /></svg>
         </button>
         <button onClick={() => { setView('settings'); setAnalysisError(null); }} className={`flex flex-col items-center gap-1.5 ${view === 'settings' ? 'text-blue-600' : 'text-gray-300'}`}>
