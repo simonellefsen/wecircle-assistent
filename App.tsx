@@ -641,6 +641,7 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const userId = user?.id ?? null;
   const primaryProvider = OPENROUTER_PROVIDER;
+  const selectedModelConfig = MODELS_BY_PROVIDER[primaryProvider.id]?.find((model) => model.id === settings.model);
 
   const flushPendingItemOps = useCallback(async () => {
     if (!userId) return;
@@ -1427,11 +1428,11 @@ const App: React.FC = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-semibold">Model</span>
-                    <select 
-                      value={settings.model} 
-                      onChange={(e) => setSettings(prev => ({...prev, model: e.target.value}))}
-                      className="bg-transparent text-sm font-bold text-blue-600 outline-none text-right max-w-[200px] truncate"
-                    >
+                      <select 
+                        value={settings.model} 
+                        onChange={(e) => setSettings(prev => ({...prev, model: e.target.value}))}
+                        className="bg-transparent text-sm font-bold text-blue-600 outline-none text-right max-w-[200px] truncate"
+                      >
                       {MODELS_BY_PROVIDER[primaryProvider.id]?.length
                         ? MODELS_BY_PROVIDER[primaryProvider.id]!.map(m => <option key={m.id} value={m.id}>{m.name}</option>)
                         : <option value="">Ingen modeller tilgængelige</option>
@@ -1441,9 +1442,19 @@ const App: React.FC = () => {
                   <div className="flex items-center justify-between bg-gray-50/50 p-3 rounded-xl border border-gray-100">
                     <div className="flex items-center gap-2 text-[#9CA3AF]">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      <span className="text-[10px] font-bold uppercase tracking-tight">{primaryProvider.name}: {settings.model}</span>
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-tight block">{primaryProvider.name}: {settings.model}</span>
+                        {selectedModelConfig?.pricingLabel && (
+                          <span className="text-[10px] font-semibold tracking-tight text-[#6B7280] block mt-0.5">
+                            {selectedModelConfig.pricingLabel}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
+                  <p className="text-[9px] text-[#9CA3AF] font-medium px-1">
+                    OpenRouter listepriser. De kan aendre sig over tid.
+                  </p>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-semibold">Prompt</span>
